@@ -10,7 +10,7 @@ namespace LearningCSharp
         static void Main()
         {
             InitSDL();
-
+            
             Window window = new Window(1200, 700, "Vulkan Sandbox");
             using (VulkanInstance instance = new VulkanInstance("Vulkan Sandbox", new Version(1, 0, 0), "Test Vulkan Engine", new Version(1, 0, 0), window))
             using (LogicalDevice device = new LogicalDevice(instance))
