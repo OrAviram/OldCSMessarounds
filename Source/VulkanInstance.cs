@@ -6,7 +6,7 @@ using SharpVulkan;
 
 namespace LearningCSharp
 {
-    public unsafe class VulkanInstance
+    public unsafe class VulkanInstance : IDisposable
     {
         public Instance NativeInstance { get; private set; }
 
@@ -57,7 +57,16 @@ namespace LearningCSharp
                     }
                 }
 
-                CreateInstance(applicationInfo, extensionsCount, extensionNames, validationLayersCount, validationLayerNames);
+                InstanceCreateInfo createInfo = new InstanceCreateInfo
+                {
+                    StructureType = StructureType.InstanceCreateInfo,
+                    ApplicationInfo = (IntPtr)applicationInfo,
+                    EnabledExtensionCount = extensionsCount,
+                    EnabledExtensionNames = extensionNames,
+                    EnabledLayerCount = validationLayersCount,
+                    EnabledLayerNames = validationLayerNames,
+                };
+                NativeInstance = Vulkan.CreateInstance(ref createInfo);
             }
             finally
             {
@@ -73,20 +82,6 @@ namespace LearningCSharp
                         Marshal.FreeHGlobal(name);
                 }
             }
-        }
-
-        void CreateInstance(ApplicationInfo* applicationInfo, uint extensionsCount, IntPtr extensionNames, uint layerCount, IntPtr layerNames)
-        {
-            InstanceCreateInfo createInfo = new InstanceCreateInfo
-            {
-                StructureType = StructureType.InstanceCreateInfo,
-                ApplicationInfo = (IntPtr)applicationInfo,
-                EnabledExtensionCount = extensionsCount,
-                EnabledExtensionNames = extensionNames,
-                EnabledLayerCount = layerCount,
-                EnabledLayerNames = layerNames,
-            };
-            NativeInstance = Vulkan.CreateInstance(ref createInfo);
         }
 
         string[] FilterValidationLayers(string[] desiredLayers)
@@ -125,6 +120,17 @@ namespace LearningCSharp
                     throw new Exception("Desired extention '" + desiredExtention + "' is not supported!");
             }
             return enabledExtensions;
+        }
+
+        public void Dispose()
+        {
+            NativeInstance.Destroy();
+            GC.SuppressFinalize(this);
+        }
+
+        ~VulkanInstance()
+        {
+            Dispose();
         }
     }
 }

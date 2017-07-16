@@ -11,15 +11,10 @@ namespace LearningCSharp
         {
             InitSDL();
 
-            ApplicationInfo appInfo = new ApplicationInfo
-            {
-                StructureType = StructureType.ApplicationInfo,
-                ApiVersion = Vulkan.ApiVersion,
-                ApplicationVersion = new Version(1, 0, 0),
-                EngineVersion = new Version(1, 0, 0),
-            };
-            //VulkanInstance instance = new VulkanInstance(&appInfo, new string[] { "VK_KHR_surface" }, new string[] { "VK_LAYER_LUNARG_standard_validation" });
-            VulkanInstance instance = new VulkanInstance(&appInfo, null, null);
+            VulkanRenderer renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0));
+
+            renderer.Dispose();
+            Console.ReadKey();
 
             //Window window = new Window(1200, 700, "Vulkan Sandbox");
             //using (VulkanInstance instance = new VulkanInstance("Vulkan Sandbox", new Version(1, 0, 0), "Test Vulkan Engine", new Version(1, 0, 0), window))
