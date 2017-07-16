@@ -6,22 +6,23 @@ namespace LearningCSharp
 {
     public unsafe class VulkanDebugger : IDisposable
     {
-        public static string[] ValidationLayers => new string[] { "VK_LAYER_LUNARG_standard_validation" };
-
         private DebugReportCallback callback;
         Instance vkInstance;
 
         public VulkanDebugger(Instance vkInstance)
         {
-            this.vkInstance = vkInstance;
-
-            DebugReportCallbackCreateInfo createInfo = new DebugReportCallbackCreateInfo
+            if (VulkanUtils.ENABLE_VALIDATION_LAYERS)
             {
-                StructureType = StructureType.DebugReportCallbackCreateInfo,
-                Callback = Marshal.GetFunctionPointerForDelegate(new VulkanDebugReportCallbackDel(DebugCallback)),
-                Flags = (uint)(/*DebugReportFlags.Debug |*/ DebugReportFlags.Error | DebugReportFlags.Information | DebugReportFlags.PerformanceWarning | DebugReportFlags.Warning),
-            };
-            callback = vkInstance.CreateDebugReportCallback(ref createInfo);
+                this.vkInstance = vkInstance;
+
+                DebugReportCallbackCreateInfo createInfo = new DebugReportCallbackCreateInfo
+                {
+                    StructureType = StructureType.DebugReportCallbackCreateInfo,
+                    Callback = Marshal.GetFunctionPointerForDelegate(new VulkanDebugReportCallbackDel(DebugCallback)),
+                    Flags = (uint)(/*DebugReportFlags.Debug |*/ DebugReportFlags.Error | DebugReportFlags.Information | DebugReportFlags.PerformanceWarning | DebugReportFlags.Warning),
+                };
+                callback = vkInstance.CreateDebugReportCallback(ref createInfo);
+            }
         }
 
         void DebugCallback(DebugReportFlags flags, DebugReportObjectType objType, ulong obj, PointerSize location, int code, string layerPrefix, string msg, IntPtr userData)
@@ -52,7 +53,9 @@ namespace LearningCSharp
 
         public void Dispose()
         {
-            vkInstance.DestroyDebugReportCallback(callback);
+            if (VulkanUtils.ENABLE_VALIDATION_LAYERS)
+                vkInstance.DestroyDebugReportCallback(callback);
+
             GC.SuppressFinalize(this);
         }
 
@@ -60,5 +63,7 @@ namespace LearningCSharp
         {
             Dispose();
         }
+
+        delegate void VulkanDebugReportCallbackDel(DebugReportFlags flags, DebugReportObjectType objectType, ulong obj, PointerSize location, int messageCode, string layerPrefix, string message, IntPtr userData);
     }
 }

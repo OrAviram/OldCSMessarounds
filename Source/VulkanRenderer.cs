@@ -13,15 +13,6 @@ namespace LearningCSharp
 
         public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion)
         {
-            string[] desiredValidationLayers = null;
-            List<string> desiredExtensions = new List<string> { "VK_KHR_surface", "VK_KHR_win32_surface" };
-
-            if (VulkanUtils.ENABLE_VALIDATION_LAYERS)
-            {
-                desiredValidationLayers = VulkanDebugger.ValidationLayers;
-                desiredExtensions.Add("VK_EXT_debug_report");
-            }
-
             ApplicationInfo appInfo = new ApplicationInfo
             {
                 StructureType = StructureType.ApplicationInfo,
@@ -34,7 +25,7 @@ namespace LearningCSharp
 
             try
             {
-                Initialize(ref appInfo, desiredExtensions.ToArray(), desiredValidationLayers);
+                Initialize(ref appInfo);
             }
             finally
             {
@@ -43,10 +34,10 @@ namespace LearningCSharp
             }
         }
 
-        void Initialize(ref ApplicationInfo appInfo, string[] desiredExtensions, string[] desiredValidationLayers)
+        void Initialize(ref ApplicationInfo appInfo)
         {
             fixed(ApplicationInfo* appInfoPtr = &appInfo)
-                Instance = new VulkanInstance(appInfoPtr, desiredExtensions, desiredValidationLayers);
+                Instance = new VulkanInstance(appInfoPtr, VulkanUtils.Extensions, VulkanUtils.ValidationLayers);
 
             debugger = new VulkanDebugger(Instance.NativeInstance);
         }

@@ -1,6 +1,5 @@
 ﻿using System;
 using SDL2;
-using SharpVulkan;
 using Version = SharpVulkan.Version;
 
 namespace LearningCSharp
@@ -12,8 +11,8 @@ namespace LearningCSharp
             InitSDL();
 
             VulkanRenderer renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0));
-
             renderer.Dispose();
+
             Console.ReadKey();
 
             //Window window = new Window(1200, 700, "Vulkan Sandbox");
