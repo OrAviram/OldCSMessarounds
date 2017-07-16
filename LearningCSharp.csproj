@@ -59,6 +59,7 @@
     <Compile Include="Source\Old\VulkanInstance.cs" />
     <Compile Include="Source\Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Source\VulkanDebugger.cs" />
     <Compile Include="Source\VulkanInstance.cs" />
     <Compile Include="Source\VulkanRenderer.cs" />
     <Compile Include="Source\VulkanUtils.cs" />

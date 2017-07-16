@@ -9,8 +9,7 @@ namespace LearningCSharp
     public unsafe class VulkanRenderer : IDisposable
     {
         public VulkanInstance Instance { get; private set; }
-
-        private DebugReportCallback debugReportCallback;
+        private VulkanDebugger debugger;
 
         public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion)
         {
@@ -19,7 +18,7 @@ namespace LearningCSharp
 
             if (VulkanUtils.ENABLE_VALIDATION_LAYERS)
             {
-                desiredValidationLayers = new string[] { "VK_LAYER_LUNARG_standard_validation" };
+                desiredValidationLayers = VulkanDebugger.ValidationLayers;
                 desiredExtensions.Add("VK_EXT_debug_report");
             }
 
@@ -35,7 +34,7 @@ namespace LearningCSharp
 
             try
             {
-                Init(ref appInfo, desiredExtensions.ToArray(), desiredValidationLayers);
+                Initialize(ref appInfo, desiredExtensions.ToArray(), desiredValidationLayers);
             }
             finally
             {
@@ -44,54 +43,17 @@ namespace LearningCSharp
             }
         }
 
-        void Init(ref ApplicationInfo appInfo, string[] desiredExtensions, string[] desiredValidationLayers)
+        void Initialize(ref ApplicationInfo appInfo, string[] desiredExtensions, string[] desiredValidationLayers)
         {
             fixed(ApplicationInfo* appInfoPtr = &appInfo)
                 Instance = new VulkanInstance(appInfoPtr, desiredExtensions, desiredValidationLayers);
 
-            CreateDebugReportCallback();
+            debugger = new VulkanDebugger(Instance.NativeInstance);
         }
-
-        void CreateDebugReportCallback()
-        {
-            DebugReportCallbackCreateInfo createInfo = new DebugReportCallbackCreateInfo
-            {
-                StructureType = StructureType.DebugReportCallbackCreateInfo,
-                Callback = Marshal.GetFunctionPointerForDelegate(new VulkanDebugReportCallbackDel(DebugCallback)),
-                Flags = (uint)(/*DebugReportFlags.Debug |*/ DebugReportFlags.Error | DebugReportFlags.Information | DebugReportFlags.PerformanceWarning | DebugReportFlags.Warning),
-            };
-            debugReportCallback = Instance.NativeInstance.CreateDebugReportCallback(ref createInfo);
-        }
-
-        void DebugCallback(DebugReportFlags flags, DebugReportObjectType objType, ulong obj, PointerSize location, int code, string layerPrefix, string msg, IntPtr userData)
-        {
-            switch (flags)
-            {
-                case DebugReportFlags.Error:
-                    Logger.Log("VULKAN ERROR: " + msg, ConsoleColor.Red);
-                    break;
-
-                case DebugReportFlags.Warning:
-                    Logger.Log("VULKAN WARNING: " + msg, ConsoleColor.Yellow);
-                    break;
-
-                case DebugReportFlags.PerformanceWarning:
-                    Logger.Log("VULKAN PERFORMANCE WARNING: " + msg, ConsoleColor.Green);
-                    break;
-
-                case DebugReportFlags.Information:
-                    Logger.Log("VULKAN INFORMATION: " + msg, ConsoleColor.Cyan);
-                    break;
-
-                case DebugReportFlags.Debug:
-                    Logger.Log("VULKAN DEBUG: " + msg, ConsoleColor.Gray);
-                    break;
-            }
-        }
-
+        
         public void Dispose()
         {
-            Instance.NativeInstance.DestroyDebugReportCallback(debugReportCallback);
+            debugger.Dispose();
             Instance.Dispose();
             GC.SuppressFinalize(this);
         }
