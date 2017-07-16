@@ -217,7 +217,7 @@ namespace LearningCSharp
             Win32SurfaceCreateInfo createInfo = new Win32SurfaceCreateInfo
             {
                 StructureType = StructureType.Win32SurfaceCreateInfo,
-                InstanceHandle = Process.GetCurrentProcess().Handle,
+                InstanceHandle = Marshal.GetHINSTANCE(GetType().Module),
                 WindowHandle = mainWindow.Handle,
             };
             Surface = NativeInstance.CreateWin32Surface(ref createInfo);
