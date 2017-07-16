@@ -1,4 +1,5 @@
-﻿using System;
+﻿/*
+using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using SharpVulkan;
@@ -76,7 +77,8 @@ namespace LearningCSharp
                     ImageExtent = instance.SwapchainImageExtent,
                     ImageArrayLayers = 1,
                     ImageUsage = ImageUsageFlags.ColorAttachment,
-                    PreTransform = instance.SurfaceCapabilities.CurrentTransform,
+                    //PreTransform = instance.SurfaceCapabilities.CurrentTransform,
+                    PreTransform = SurfaceTransformFlags.Identity,
                     CompositeAlpha = CompositeAlphaFlags.Opaque,
                     PresentMode = instance.SurfacePresentMode,
                     Clipped = true,
@@ -112,3 +114,4 @@ namespace LearningCSharp
         }
     }
 }
+*/
