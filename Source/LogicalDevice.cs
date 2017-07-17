@@ -52,6 +52,9 @@ namespace LearningCSharp
                 NativeDevice = physicalDevice.CreateDevice(ref createInfo);
             }
             GraphicsQueue = NativeDevice.GetQueue(graphicsFamilyIndex, 0);
+
+            foreach (IntPtr extensionName in extensionNames)
+                Marshal.FreeHGlobal(extensionName);
         }
 
         string[] FilterExtensions(string[] desiredExtensions)

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using SharpVulkan;
 
 namespace LearningCSharp
@@ -35,7 +34,7 @@ namespace LearningCSharp
                 PreTransform = surface.Capabilities.CurrentTransform,
                 QueueFamilyIndexCount = 0,
                 QueueFamilyIndices = IntPtr.Zero,
-                Surface = surface.NativeSurface
+                Surface = surface.NativeSurface,
             };
             NativeSwapchain = nativeDevice.CreateSwapchain(ref createInfo);
 

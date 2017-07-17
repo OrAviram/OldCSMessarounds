@@ -56,8 +56,6 @@
   <ItemGroup>
     <Compile Include="Source\Logger.cs" />
     <Compile Include="Source\LogicalDevice.cs" />
-    <Compile Include="Source\Old\LogicalDevice.cs" />
-    <Compile Include="Source\Old\VulkanInstance.cs" />
     <Compile Include="Source\Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Source\VulkanSwapchain.cs" />

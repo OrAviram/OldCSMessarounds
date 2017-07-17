@@ -8,10 +8,10 @@ namespace LearningCSharp
     {
         public Surface NativeSurface { get; private set; }
         public SurfaceCapabilities Capabilities { get; private set; }
-        public SurfaceFormat Format { get; private set; }
-        public PresentMode PresentMode { get; private set; }
         public Extent2D ImageExtents { get; private set; }
         public uint ImageCount { get; private set; }
+        public SurfaceFormat Format { get; private set; }
+        public PresentMode PresentMode { get; private set; }
 
         private Instance nativeInstance;
         private PhysicalDevice nativePhysicalDevice;
