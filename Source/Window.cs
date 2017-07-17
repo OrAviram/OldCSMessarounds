@@ -8,17 +8,16 @@ namespace LearningCSharp
     public class Window
     {
         private static Dictionary<IntPtr, Window> windows = new Dictionary<IntPtr, Window>();
-        private static VulkanRenderer defaultRenderer;
 
         #region Window properties.
         public Size Size
         {
             get
             {
-                SDL.SDL_GetWindowSize(Handle, out int width, out int height);
+                SDL.SDL_GetWindowSize(SDLHandle, out int width, out int height);
                 return new Size(width, height);
             }
-            set { SDL.SDL_SetWindowSize(Handle, value.Width, value.Height); }
+            set { SDL.SDL_SetWindowSize(SDLHandle, value.Width, value.Height); }
         }
 
         public int Width
@@ -35,33 +34,30 @@ namespace LearningCSharp
 
         public string Title
         {
-            get { return SDL.SDL_GetWindowTitle(Handle); }
-            set { SDL.SDL_SetWindowTitle(Handle, value); }
+            get { return SDL.SDL_GetWindowTitle(SDLHandle); }
+            set { SDL.SDL_SetWindowTitle(SDLHandle, value); }
         }
 
-        public IntPtr Surface => SDL.SDL_GetWindowSurface(Handle);
-
-        public uint ID => SDL.SDL_GetWindowID(Handle);
+        public uint ID => SDL.SDL_GetWindowID(SDLHandle);
         #endregion
 
-        public IntPtr Handle { get; private set; }
+        public IntPtr Win32Handle => systemInfo.info.win.window;
+
+        public IntPtr SDLHandle { get; private set; }
         public bool IsClosed { get; private set; }
 
-        private VulkanRenderer renderer;
+        private SDL.SDL_SysWMinfo systemInfo;
 
         private Window() { }
 
-        public Window(int width, int height, string title, VulkanRenderer renderer)
+        public Window(int width, int height, string title)
         {
-            this.renderer = renderer;
-            if (defaultRenderer == null)
-                defaultRenderer = renderer;
-
-            Handle = SDL.SDL_CreateWindow(title, SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, width, height, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
-            if (Handle == IntPtr.Zero)
+            SDLHandle = SDL.SDL_CreateWindow(title, SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, width, height, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
+            if (SDLHandle == IntPtr.Zero)
                 throw new Exception("Failed to create SDL window! Message: " + SDL.SDL_GetError());
 
-            windows.Add(Handle, this);
+            SDL.SDL_GetWindowWMInfo(SDLHandle, ref systemInfo);
+            windows.Add(SDLHandle, this);
         }
 
         public static Window FromHandle(IntPtr handle)
@@ -72,9 +68,9 @@ namespace LearningCSharp
             {
                 Window win = new Window
                 {
-                    Handle = handle,
-                    renderer = defaultRenderer,
+                    SDLHandle = handle,
                 };
+                SDL.SDL_GetWindowWMInfo(win.SDLHandle, ref win.systemInfo);
                 windows.Add(handle, win);
                 return win;
             }
@@ -87,17 +83,17 @@ namespace LearningCSharp
 
         public void Show()
         {
-            SDL.SDL_ShowWindow(Handle);
+            SDL.SDL_ShowWindow(SDLHandle);
         }
 
         public void Hide()
         {
-            SDL.SDL_HideWindow(Handle);
+            SDL.SDL_HideWindow(SDLHandle);
         }
 
         public void Close()
         {
-            SDL.SDL_DestroyWindow(Handle);
+            SDL.SDL_DestroyWindow(SDLHandle);
             IsClosed = true;
         }
     }

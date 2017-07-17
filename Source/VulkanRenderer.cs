@@ -10,10 +10,15 @@ namespace LearningCSharp
         public VulkanInstance Instance { get; private set; }
         public VulkanPhysicalDevice PhysicalDevice { get; private set; }
         public LogicalDevice LogicalDevice { get; private set; }
+        public VulkanSurface Surface { get; private set; }
+        public VulkanSwapchain Swapchain { get; private set; }
+
         private VulkanDebugger debugger;
-        
-        public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion)
+        private Window mainWindow;
+
+        public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion, Window mainWindow)
         {
+            this.mainWindow = mainWindow;
             ApplicationInfo appInfo = new ApplicationInfo
             {
                 StructureType = StructureType.ApplicationInfo,
@@ -45,11 +50,14 @@ namespace LearningCSharp
             if (!PhysicalDevice.IsValid)
                 throw new Exception("No suitable device found!");
 
-            LogicalDevice = new LogicalDevice(PhysicalDevice);
+            LogicalDevice = new LogicalDevice(PhysicalDevice, VulkanUtils.DeviceExtensions);
+            Surface = new VulkanSurface(mainWindow, Instance, PhysicalDevice);
+            Swapchain = new VulkanSwapchain(LogicalDevice, Surface);
         }
 
         public void Dispose()
         {
+            Surface.Dispose();
             LogicalDevice.Dispose();
             debugger.Dispose();
             Instance.Dispose();

@@ -9,9 +9,10 @@ namespace LearningCSharp
         static unsafe void Main()
         {
             InitSDL();
-            using (VulkanRenderer renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0)))
+
+            Window window = new Window(1200, 700, "Vulkan Sandbox");
+            using (VulkanRenderer renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window))
             {
-                Window window = new Window(1200, 700, "Vulkan Sandbox", renderer);
                 while (!window.IsClosed)
                 {
                     while (SDL.SDL_PollEvent(out SDL.SDL_Event e) != 0)

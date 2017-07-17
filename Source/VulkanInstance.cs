@@ -112,7 +112,7 @@ namespace LearningCSharp
                 fixed (void* namePtr = &availableExtensionProperties[i].ExtensionName)
                     availableExtentions.Add(Marshal.PtrToStringAnsi(new IntPtr(namePtr)));
             }
-
+            
             string[] enabledExtensions = desiredExtensions.Where(availableExtentions.Contains).ToArray();
             foreach (string desiredExtention in desiredExtensions)
             {

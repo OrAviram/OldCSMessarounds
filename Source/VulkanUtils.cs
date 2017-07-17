@@ -13,7 +13,7 @@ namespace LearningCSharp
             for (int i = 0; i < queueFamilies.Length; i++)
             {
                 QueueFamilyProperties queueFamily = queueFamilies[i];
-                if (queueFamily.QueueCount > 0 && (queueFamily.QueueFlags & QueueFlags.Graphics) == 0)
+                if (queueFamily.QueueCount > 0 && queueFamily.QueueFlags.HasFlag(QueueFlags.Graphics))
                     indices.graphicsFamily = i;
 
                 if (indices.IsComplete)
@@ -73,12 +73,14 @@ namespace LearningCSharp
             return score;
         }
 
+        public static string[] DeviceExtensions => new string[] { "VK_KHR_swapchain" };
+
 #       if DEBUG
-        public static string[] Extensions => new string[] { "VK_EXT_debug_report" };
+        public static string[] Extensions => new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
         public static string[] ValidationLayers => new string[] { "VK_LAYER_LUNARG_standard_validation" };
         public const bool ENABLE_VALIDATION_LAYERS = true;
 #       else
-        public static string[] Extensions => new string[] { };
+        public static string[] Extensions => new string[] { "VK_KHR_surface", "VK_KHR_win32_surface" };
         public static string[] ValidationLayers => null;
         public const bool ENABLE_VALIDATION_LAYERS = false;
 #       endif
