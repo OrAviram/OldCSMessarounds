@@ -57,6 +57,7 @@ namespace LearningCSharp
 
         public void Dispose()
         {
+            Swapchain.Dispose();
             Surface.Dispose();
             LogicalDevice.Dispose();
             debugger.Dispose();

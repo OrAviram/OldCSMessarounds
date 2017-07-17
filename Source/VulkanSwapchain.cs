@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SharpVulkan;
 
 namespace LearningCSharp
@@ -7,11 +8,15 @@ namespace LearningCSharp
     {
         public Swapchain NativeSwapchain { get; private set; }
 
-        private LogicalDevice device;
+        private Device nativeDevice;
+        private VulkanSurface surface;
+        private Image[] images;
+        private ImageView[] imageViews;
 
         public VulkanSwapchain(LogicalDevice device, VulkanSurface surface)
         {
-            this.device = device;
+            nativeDevice = device.NativeDevice;
+            this.surface = surface;
 
             SwapchainCreateInfo createInfo = new SwapchainCreateInfo
             {
@@ -32,12 +37,36 @@ namespace LearningCSharp
                 QueueFamilyIndices = IntPtr.Zero,
                 Surface = surface.NativeSurface
             };
-            NativeSwapchain = device.NativeDevice.CreateSwapchain(ref createInfo);
+            NativeSwapchain = nativeDevice.CreateSwapchain(ref createInfo);
+
+            images = nativeDevice.GetSwapchainImages(NativeSwapchain);
+            CreateImageViews();
+        }
+
+        void CreateImageViews()
+        {
+            imageViews = new ImageView[images.Length];
+            for (int i = 0; i < images.Length; i++)
+            {
+                ImageViewCreateInfo createInfo = new ImageViewCreateInfo
+                {
+                    StructureType = StructureType.ImageViewCreateInfo,
+                    Components = ComponentMapping.Identity,
+                    Format = surface.Format.Format,
+                    Image = images[i],
+                    SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.Color, 0, 1, 0, 1),
+                    ViewType = ImageViewType.Image2D,
+                };
+                imageViews[i] = nativeDevice.CreateImageView(ref createInfo);
+            }
         }
 
         public void Dispose()
         {
-            device.NativeDevice.DestroySwapchain(NativeSwapchain);
+            foreach (ImageView imageView in imageViews)
+                nativeDevice.DestroyImageView(imageView);
+
+            nativeDevice.DestroySwapchain(NativeSwapchain);
             GC.SuppressFinalize(this);
         }
 
