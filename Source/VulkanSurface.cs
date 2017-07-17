@@ -10,7 +10,8 @@ namespace LearningCSharp
         public SurfaceCapabilities Capabilities { get; private set; }
         public SurfaceFormat Format { get; private set; }
         public PresentMode PresentMode { get; private set; }
-        public Extent2D Extents { get; private set; }
+        public Extent2D ImageExtents { get; private set; }
+        public uint ImageCount { get; private set; }
 
         private Instance nativeInstance;
         private PhysicalDevice nativePhysicalDevice;
@@ -38,6 +39,7 @@ namespace LearningCSharp
             Capabilities = capabilities;
 
             ChooseExtents();
+            CalculateImageCount();
             ChooseFormat(nativePhysicalDevice.GetSurfaceFormats(NativeSurface));
             ChoosePresentMode(nativePhysicalDevice.GetSurfacePresentModes(NativeSurface));
         }
@@ -45,14 +47,21 @@ namespace LearningCSharp
         void ChooseExtents()
         {
             if (Capabilities.CurrentExtent.Width != uint.MaxValue)
-                Extents = Capabilities.CurrentExtent;
+                ImageExtents = Capabilities.CurrentExtent;
             else
             {
-                Extents = new Extent2D((uint)window.Width, (uint)window.Height);
-                Extents = new Extent2D(
-                    Math.Max(Capabilities.MinImageExtent.Width, Math.Min(Capabilities.MaxImageExtent.Width, Extents.Width)),
-                    Math.Max(Capabilities.MinImageExtent.Height, Math.Min(Capabilities.MaxImageExtent.Height, Extents.Height)));
+                ImageExtents = new Extent2D((uint)window.Width, (uint)window.Height);
+                ImageExtents = new Extent2D(
+                    Math.Max(Capabilities.MinImageExtent.Width, Math.Min(Capabilities.MaxImageExtent.Width, ImageExtents.Width)),
+                    Math.Max(Capabilities.MinImageExtent.Height, Math.Min(Capabilities.MaxImageExtent.Height, ImageExtents.Height)));
             }
+        }
+
+        void CalculateImageCount()
+        {
+            ImageCount = Capabilities.MinImageCount + 1;
+            if (Capabilities.MaxImageCount > 0 && ImageCount > Capabilities.MaxImageCount)
+                ImageCount = Capabilities.MaxImageCount;
         }
 
         void ChooseFormat(SurfaceFormat[] availableFormats)
