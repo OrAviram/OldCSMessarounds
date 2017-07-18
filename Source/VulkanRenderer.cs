@@ -67,6 +67,7 @@ namespace LearningCSharp
         {
             VertexShader.Dispose();
             FragmentShader.Dispose();
+            Pipeline.Dispose();
 
             Swapchain.Dispose();
             Surface.Dispose();
