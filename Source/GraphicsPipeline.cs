@@ -8,6 +8,7 @@ namespace LearningCSharp
     {
         public Pipeline NativePipeline { get; private set; }
         public PipelineLayout Layout { get; private set; }
+        public VulkanRenderPass RenderPass { get; private set; }
         private Device nativeDevice;
 
         public GraphicsPipeline(LogicalDevice device, Shader[] shaders, VulkanSurface surface)
@@ -37,10 +38,13 @@ namespace LearningCSharp
             PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = CreateColorBlendCreateInfo();
             CreateLayout();
 
+            RenderPass = new VulkanRenderPass(device, surface);
+
             GraphicsPipelineCreateInfo createInfo = new GraphicsPipelineCreateInfo
             {
                 StructureType = StructureType.GraphicsPipelineCreateInfo,
             };
+            nativeDevice.CreateGraphicsPipelines(PipelineCache.Null, 1, &createInfo);
             // TODO: Create pipeline.
 
             for (int i = 0; i < shaders.Length; i++)
@@ -156,6 +160,7 @@ namespace LearningCSharp
 
         public void Dispose()
         {
+            RenderPass.Dispose();
             nativeDevice.DestroyPipelineLayout(Layout);
             nativeDevice.DestroyPipeline(NativePipeline);
             GC.SuppressFinalize(this);
