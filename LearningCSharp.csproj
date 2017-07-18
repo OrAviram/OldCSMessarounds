@@ -54,6 +54,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Source\FrameBuffer.cs" />
     <Compile Include="Source\GraphicsPipeline.cs" />
     <Compile Include="Source\Logger.cs" />
     <Compile Include="Source\LogicalDevice.cs" />

@@ -56,11 +56,12 @@ namespace LearningCSharp
 
             LogicalDevice = new LogicalDevice(PhysicalDevice, VulkanUtils.DeviceExtensions);
             Surface = new VulkanSurface(mainWindow, Instance, PhysicalDevice);
-            Swapchain = new VulkanSwapchain(LogicalDevice, Surface);
 
             VertexShader = Shader.LoadShader("Shaders/vert.spv", LogicalDevice, ShaderStageFlags.Vertex);
             FragmentShader = Shader.LoadShader("Shaders/frag.spv", LogicalDevice, ShaderStageFlags.Fragment);
             Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
+
+            Swapchain = new VulkanSwapchain(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
         }
 
         public void Dispose()
