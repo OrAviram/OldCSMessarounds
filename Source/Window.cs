@@ -52,7 +52,7 @@ namespace LearningCSharp
 
         public Window(int width, int height, string title)
         {
-            SDLHandle = SDL.SDL_CreateWindow(title, SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, width, height, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
+            SDLHandle = SDL.SDL_CreateWindow(title, SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, width, height, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN | SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
             if (SDLHandle == IntPtr.Zero)
                 throw new Exception("Failed to create SDL window! Message: " + SDL.SDL_GetError());
 
