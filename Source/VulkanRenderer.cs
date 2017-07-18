@@ -13,6 +13,9 @@ namespace LearningCSharp
         public VulkanSurface Surface { get; private set; }
         public VulkanSwapchain Swapchain { get; private set; }
 
+        public Shader VertexShader { get; private set; }
+        public Shader FragmentShader { get; private set; }
+
         private VulkanDebugger debugger;
         private Window mainWindow;
 
@@ -53,10 +56,16 @@ namespace LearningCSharp
             LogicalDevice = new LogicalDevice(PhysicalDevice, VulkanUtils.DeviceExtensions);
             Surface = new VulkanSurface(mainWindow, Instance, PhysicalDevice);
             Swapchain = new VulkanSwapchain(LogicalDevice, Surface);
+
+            VertexShader = Shader.LoadShader("Shaders/vert.spv", LogicalDevice, ShaderStageFlags.Vertex);
+            FragmentShader = Shader.LoadShader("Shaders/frag.spv", LogicalDevice, ShaderStageFlags.Fragment);
         }
 
         public void Dispose()
         {
+            VertexShader.Dispose();
+            FragmentShader.Dispose();
+
             Swapchain.Dispose();
             Surface.Dispose();
             LogicalDevice.Dispose();
