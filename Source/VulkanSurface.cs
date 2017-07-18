@@ -9,7 +9,7 @@ namespace LearningCSharp
         public Surface NativeSurface { get; private set; }
         public SurfaceCapabilities Capabilities { get; private set; }
         public Extent2D ImageExtents { get; private set; }
-        public uint ImageCount { get; private set; }
+        public uint MinImageCount { get; private set; }
         public SurfaceFormat Format { get; private set; }
         public PresentMode PresentMode { get; private set; }
 
@@ -59,9 +59,9 @@ namespace LearningCSharp
 
         void CalculateImageCount()
         {
-            ImageCount = Capabilities.MinImageCount + 1;
-            if (Capabilities.MaxImageCount > 0 && ImageCount > Capabilities.MaxImageCount)
-                ImageCount = Capabilities.MaxImageCount;
+            MinImageCount = Capabilities.MinImageCount + 1;
+            if (Capabilities.MaxImageCount > 0 && MinImageCount > Capabilities.MaxImageCount)
+                MinImageCount = Capabilities.MaxImageCount;
         }
 
         void ChooseFormat(SurfaceFormat[] availableFormats)

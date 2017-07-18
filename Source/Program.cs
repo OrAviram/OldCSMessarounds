@@ -21,6 +21,7 @@ namespace LearningCSharp
                         if (winEvent.windowEvent == SDL.SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE)
                             Window.FromID(winEvent.windowID).Close();
                     }
+                    renderer.DrawFrame();
                 }
             }
             QuitSDL();

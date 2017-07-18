@@ -30,6 +30,16 @@ namespace LearningCSharp
                 Layout = ImageLayout.ColorAttachmentOptimal,
             };
 
+            SubpassDependency dependency = new SubpassDependency
+            {
+                SourceSubpass = VulkanUtils.SUBPASS_EXTERNAL,
+                DestinationSubpass = 0,
+                SourceStageMask = PipelineStageFlags.ColorAttachmentOutput,
+                SourceAccessMask = AccessFlags.None,
+                DestinationStageMask = PipelineStageFlags.ColorAttachmentOutput,
+                DestinationAccessMask = AccessFlags.ColorAttachmentRead | AccessFlags.ColorAttachmentWrite,
+            };
+
             SubpassDescription subpass = new SubpassDescription
             {
                 PipelineBindPoint = PipelineBindPoint.Graphics,
@@ -43,6 +53,8 @@ namespace LearningCSharp
                 AttachmentCount = 1,
                 Attachments = new IntPtr(&colorAttachment),
                 SubpassCount = 1,
+                DependencyCount = 1,
+                Dependencies = new IntPtr(&dependency),
                 Subpasses = new IntPtr(&subpass),
             };
             NativeRenderPass = nativeDevice.CreateRenderPass(ref createInfo);

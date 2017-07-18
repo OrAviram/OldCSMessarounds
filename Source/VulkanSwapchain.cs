@@ -6,6 +6,7 @@ namespace LearningCSharp
     public unsafe class VulkanSwapchain : IDisposable
     {
         public Swapchain NativeSwapchain { get; private set; }
+        public int ImageCount { get; private set; }
 
         private Device nativeDevice;
         private VulkanSurface surface;
@@ -32,7 +33,7 @@ namespace LearningCSharp
                 ImageFormat = surface.Format.Format,
                 ImageSharingMode = SharingMode.Exclusive,
                 ImageUsage = ImageUsageFlags.ColorAttachment,
-                MinImageCount = surface.ImageCount,
+                MinImageCount = surface.MinImageCount,
                 OldSwapchain = Swapchain.Null,
                 PresentMode = surface.PresentMode,
                 PreTransform = surface.Capabilities.CurrentTransform,
@@ -43,13 +44,19 @@ namespace LearningCSharp
             NativeSwapchain = nativeDevice.CreateSwapchain(ref createInfo);
 
             images = nativeDevice.GetSwapchainImages(NativeSwapchain);
+            ImageCount = images.Length;
             CreateImageViews();
+        }
+
+        public FrameBuffer GetFrameBuffer(int index)
+        {
+            return frameBuffers[index];
         }
 
         void CreateImageViews()
         {
-            imageViews = new ImageView[images.Length];
-            frameBuffers = new FrameBuffer[images.Length];
+            imageViews = new ImageView[ImageCount];
+            frameBuffers = new FrameBuffer[ImageCount];
             for (int i = 0; i < images.Length; i++)
             {
                 ImageViewCreateInfo createInfo = new ImageViewCreateInfo

@@ -73,6 +73,7 @@ namespace LearningCSharp
             return score;
         }
 
+        public const uint SUBPASS_EXTERNAL = ~0U;
         public static string[] DeviceExtensions => new string[] { "VK_KHR_swapchain" };
 
 #       if DEBUG
