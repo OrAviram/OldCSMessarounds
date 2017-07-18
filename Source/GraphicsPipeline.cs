@@ -28,14 +28,27 @@ namespace LearningCSharp
             };
             Rect2D scissor = new Rect2D { Offset = new Offset2D(0, 0), Extent = surface.ImageExtents };
 
+            PipelineColorBlendAttachmentState colorBlendAttachment = new PipelineColorBlendAttachmentState
+            {
+                ColorWriteMask = ColorComponentFlags.R | ColorComponentFlags.G | ColorComponentFlags.B | ColorComponentFlags.A,
+                BlendEnable = false,
+                SourceColorBlendFactor = BlendFactor.One,
+                DestinationColorBlendFactor = BlendFactor.Zero,
+                ColorBlendOperation = BlendOperation.Add,
+                SourceAlphaBlendFactor = BlendFactor.One,
+                DestinationAlphaBlendFactor = BlendFactor.Zero,
+                AlphaBlendOperation = BlendOperation.Add,
+            };
+
             PipelineShaderStageCreateInfo* shaderStagesCreateInfos = stackalloc PipelineShaderStageCreateInfo[shaders.Length];
             SetShaderStageCreateInfos(shaderStagesCreateInfos, shaders);
 
+            PipelineViewportStateCreateInfo viewportStateCreateInfo = CreateViewportStateCreateInfo(ref viewport, ref scissor);
             PipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = CreateVertexInputCreateInfo();
             PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = CreateInputAssemblyCreateInfo();
             PipelineRasterizationStateCreateInfo rasterizerCreateInfo = CreateResterizationCreateInfo();
             PipelineMultisampleStateCreateInfo multisamplingCreateInfo = CreateMultisamplingCreateInfo();
-            PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = CreateColorBlendCreateInfo();
+            PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = CreateColorBlendCreateInfo(ref colorBlendAttachment);
             CreateLayout();
 
             RenderPass = new VulkanRenderPass(device, surface);
@@ -43,12 +56,42 @@ namespace LearningCSharp
             GraphicsPipelineCreateInfo createInfo = new GraphicsPipelineCreateInfo
             {
                 StructureType = StructureType.GraphicsPipelineCreateInfo,
+                StageCount = (uint)shaders.Length,
+                Stages = (IntPtr)shaderStagesCreateInfos,
+                VertexInputState = new IntPtr(&vertexInputStateCreateInfo),
+                InputAssemblyState = new IntPtr(&inputAssemblyCreateInfo),
+                ViewportState = new IntPtr(&viewportStateCreateInfo),
+                RasterizationState = new IntPtr(&rasterizerCreateInfo),
+                MultisampleState = new IntPtr(&multisamplingCreateInfo),
+                DepthStencilState = IntPtr.Zero,
+                ColorBlendState = new IntPtr(&colorBlendStateCreateInfo),
+                DynamicState = IntPtr.Zero,
+                Layout = Layout,
+                RenderPass = RenderPass.NativeRenderPass,
+                Subpass = 0,
+                BasePipelineHandle = Pipeline.Null,
+                BasePipelineIndex = -1,
             };
-            nativeDevice.CreateGraphicsPipelines(PipelineCache.Null, 1, &createInfo);
-            // TODO: Create pipeline.
+            NativePipeline = nativeDevice.CreateGraphicsPipelines(PipelineCache.Null, 1, &createInfo);
 
             for (int i = 0; i < shaders.Length; i++)
                 Marshal.FreeHGlobal(shaderStagesCreateInfos[i].Name);
+        }
+
+        PipelineViewportStateCreateInfo CreateViewportStateCreateInfo(ref Viewport viewport, ref Rect2D scissor)
+        {
+            fixed (void* viewportPtr = &viewport)
+            fixed (void* scissorPtr = &scissor)
+            {
+                return new PipelineViewportStateCreateInfo
+                {
+                    StructureType = StructureType.PipelineViewportStateCreateInfo,
+                    ViewportCount = 1,
+                    Viewports = (IntPtr)viewportPtr,
+                    ScissorCount = 1,
+                    Scissors = (IntPtr)scissorPtr,
+                };
+            }
         }
 
         PipelineVertexInputStateCreateInfo CreateVertexInputCreateInfo()
@@ -105,29 +148,20 @@ namespace LearningCSharp
             };
         }
 
-        PipelineColorBlendStateCreateInfo CreateColorBlendCreateInfo()
+        PipelineColorBlendStateCreateInfo CreateColorBlendCreateInfo(ref PipelineColorBlendAttachmentState colorBlendAttachment)
         {
-            PipelineColorBlendAttachmentState colorBlendAttachment = new PipelineColorBlendAttachmentState
+            fixed (void* colorBlendAttachmentPtr = &colorBlendAttachment)
             {
-                ColorWriteMask = ColorComponentFlags.R | ColorComponentFlags.G | ColorComponentFlags.B | ColorComponentFlags.A,
-                BlendEnable = false,
-                SourceColorBlendFactor = BlendFactor.One,
-                DestinationColorBlendFactor = BlendFactor.Zero,
-                ColorBlendOperation = BlendOperation.Add,
-                SourceAlphaBlendFactor = BlendFactor.One,
-                DestinationAlphaBlendFactor = BlendFactor.Zero,
-                AlphaBlendOperation = BlendOperation.Add,
-            };
-
-            return new PipelineColorBlendStateCreateInfo
-            {
-                StructureType = StructureType.PipelineColorBlendStateCreateInfo,
-                LogicOperationEnable = false,
-                LogicOperation = LogicOperation.Copy,
-                AttachmentCount = 1,
-                Attachments = new IntPtr(&colorBlendAttachment),
-                BlendConstants = new PipelineColorBlendStateCreateInfo.BlendConstantsArray { Value0 = 0, Value1 = 0, Value2 = 0, Value3 = 0 },
-            };
+                return new PipelineColorBlendStateCreateInfo
+                {
+                    StructureType = StructureType.PipelineColorBlendStateCreateInfo,
+                    LogicOperationEnable = false,
+                    LogicOperation = LogicOperation.Copy,
+                    AttachmentCount = 1,
+                    Attachments = (IntPtr)colorBlendAttachmentPtr,
+                    BlendConstants = new PipelineColorBlendStateCreateInfo.BlendConstantsArray { Value0 = 0, Value1 = 0, Value2 = 0, Value3 = 0 },
+                };
+            }
         }
 
         void CreateLayout()
