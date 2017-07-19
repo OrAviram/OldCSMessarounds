@@ -15,13 +15,15 @@ namespace LearningCSharp
             {
                 while (!window.IsClosed)
                 {
+                    renderer.DrawFrame();
                     while (SDL.SDL_PollEvent(out SDL.SDL_Event e) != 0)
                     {
                         SDL.SDL_WindowEvent winEvent = e.window;
                         if (winEvent.windowEvent == SDL.SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE)
+                        {
                             Window.FromID(winEvent.windowID).Close();
+                        }
                     }
-                    renderer.DrawFrame();
                 }
             }
             QuitSDL();

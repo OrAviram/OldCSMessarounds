@@ -173,18 +173,19 @@ namespace LearningCSharp
 
         public void Dispose()
         {
+            LogicalDevice.GraphicsQueue.WaitIdle();
             LogicalDevice.NativeDevice.WaitIdle();
 
             imageAvailableSemaphore.Dispose();
             renderFinishedSemaphore.Dispose();
 
             CommandPool.Dispose();
-
-            VertexShader.Dispose();
-            FragmentShader.Dispose();
-            Pipeline.Dispose();
-            
             Swapchain.Dispose();
+
+            Pipeline.Dispose();
+            FragmentShader.Dispose();
+            VertexShader.Dispose();
+            
             Surface.Dispose();
             LogicalDevice.Dispose();
             debugger.Dispose();
