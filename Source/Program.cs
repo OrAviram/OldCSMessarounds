@@ -18,18 +18,15 @@ namespace LearningCSharp
 
             const float HEIGHT = .5f;
 
-            /*vec2(-.5, -HEIGHT), vec2(0, HEIGHT), vec2(-1, HEIGHT),
-//	vec2(.5, -HEIGHT), vec2(1, HEIGHT), vec2(0, HEIGHT)*/
-
             Triangle triangleA = new Triangle(
-                new Vertex(new Vector2(-.5f, -HEIGHT), Color.Red),
-                new Vertex(new Vector2(0, HEIGHT), Color.Red),
-                new Vertex(new Vector2(-1, HEIGHT), Color.Red));
+                new Vertex(new Vector2(-.5f, -HEIGHT), Vector3.UnitX),
+                new Vertex(new Vector2(0, HEIGHT), Vector3.UnitY),
+                new Vertex(new Vector2(-1, HEIGHT), Vector3.UnitZ));
 
             Triangle triangleB = new Triangle(
-                new Vertex(new Vector2(.5f, -HEIGHT), Color.Red),
-                new Vertex(new Vector2(1, HEIGHT), Color.Red),
-                new Vertex(new Vector2(0, HEIGHT), Color.Red));
+                new Vertex(new Vector2(.5f, -HEIGHT), Vector3.UnitX),
+                new Vertex(new Vector2(1, HEIGHT), Vector3.UnitZ),
+                new Vertex(new Vector2(0, HEIGHT), Vector3.UnitY));
 
             window = new Window(1200, 700, "Vulkan Sandbox");
             using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleA, triangleB }))
