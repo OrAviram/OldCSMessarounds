@@ -141,7 +141,7 @@ namespace LearningCSharp
                 DepthClampEnable = false,
                 FrontFace = FrontFace.Clockwise,
                 LineWidth = 1,
-                PolygonMode = PolygonMode.Fill,
+                PolygonMode = PolygonMode.Line,
                 RasterizerDiscardEnable = false,
             };
         }

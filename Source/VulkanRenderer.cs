@@ -49,10 +49,8 @@ namespace LearningCSharp
         public Vertex a;
         public Vertex b;
         public Vertex c;
-
-        public Vertex[] AsArray => new Vertex[] { a, b, c };
         
-        public Triangle(Vertex a, Vertex b, Vertex c)
+        public unsafe Triangle(Vertex a, Vertex b, Vertex c)
         {
             this.a = a;
             this.b = b;
@@ -179,15 +177,13 @@ namespace LearningCSharp
             IntPtr bufferDataPointer = LogicalDevice.NativeDevice.MapMemory(DeviceMemory, 0, createInfo.Size, MemoryMapFlags.None);
             float[] data = new float[Marshal.SizeOf(typeof(Triangle)) * triangles.Length / sizeof(float)];
 
-            int currentVertex = 0;
             int currentData = 0;
             for (int triangleIndex = 0; triangleIndex < triangles.Length; triangleIndex++)
             {
                 Triangle currentTri = triangles[triangleIndex];
-                Vertex a = currentTri.AsArray[currentVertex++];
-                Vertex b = currentTri.AsArray[currentVertex++];
-                Vertex c = currentTri.AsArray[currentVertex];
-                currentVertex = 0;
+                Vertex a = currentTri.a;
+                Vertex b = currentTri.b;
+                Vertex c = currentTri.c;
 
                 data[currentData++] = a.position.X;
                 data[currentData++] = a.position.Y;
