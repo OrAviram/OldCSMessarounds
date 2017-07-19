@@ -25,6 +25,9 @@ namespace LearningCSharp
         private VulkanSemaphore imageAvailableSemaphore;
         private VulkanSemaphore renderFinishedSemaphore;
 
+        private const string VERTEX_SHADER_FILE_PATH = "Shaders/vert.spv";
+        private const string FRAGMENT_SHADER_FILE_PATH = "Shaders/frag.spv";
+
         public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion, Window mainWindow)
         {
             this.mainWindow = mainWindow;
@@ -62,8 +65,8 @@ namespace LearningCSharp
             LogicalDevice = new LogicalDevice(PhysicalDevice, VulkanUtils.DeviceExtensions);
             Surface = new VulkanSurface(mainWindow, Instance, PhysicalDevice);
 
-            VertexShader = Shader.LoadShader("Shaders/vert.spv", LogicalDevice, ShaderStageFlags.Vertex);
-            FragmentShader = Shader.LoadShader("Shaders/frag.spv", LogicalDevice, ShaderStageFlags.Fragment);
+            VertexShader = Shader.LoadShader(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
+            FragmentShader = Shader.LoadShader(FRAGMENT_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Fragment);
             Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
 
             Swapchain = new VulkanSwapchain(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
@@ -73,6 +76,28 @@ namespace LearningCSharp
 
             imageAvailableSemaphore = new VulkanSemaphore(LogicalDevice.NativeDevice);
             renderFinishedSemaphore = new VulkanSemaphore(LogicalDevice.NativeDevice);
+        }
+
+        public void RecreateSwapchain()
+        {
+            LogicalDevice.NativeDevice.WaitIdle();
+
+            Swapchain.Dispose(false);
+            Surface.Dispose(false);
+            Pipeline.Dispose(false);
+            FragmentShader.Dispose(false);
+            VertexShader.Dispose(false);
+
+            VertexShader.ConstructLoad(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
+            FragmentShader.ConstructLoad(FRAGMENT_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Fragment);
+            Pipeline.Construct(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
+            Surface.Construct(mainWindow, Instance, PhysicalDevice);
+            Swapchain.Construct(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
+
+            fixed (CommandBuffer* commandBuffersPtr = &commandBuffers[0])
+                LogicalDevice.NativeDevice.FreeCommandBuffers(CommandPool.NativeCommandPool, (uint)commandBuffers.Length, commandBuffersPtr);
+
+            CreateCommandBuffers();
         }
 
         void CreateCommandBuffers()
@@ -119,7 +144,7 @@ namespace LearningCSharp
 
                     commandBuffer->BindPipeline(PipelineBindPoint.Graphics, Pipeline.NativePipeline);
                     commandBuffer->Draw(6, 1, 0, 0);
-
+                    
                     commandBuffer->EndRenderPass();
                     commandBuffer->End();
                 }

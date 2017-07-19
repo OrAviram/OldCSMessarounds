@@ -11,7 +11,7 @@ namespace LearningCSharp
         public VulkanRenderPass RenderPass { get; private set; }
         private Device nativeDevice;
 
-        public GraphicsPipeline(LogicalDevice device, Shader[] shaders, VulkanSurface surface)
+        public void Construct(LogicalDevice device, Shader[] shaders, VulkanSurface surface)
         {
             if (shaders == null)
                 shaders = new Shader[0];
@@ -76,6 +76,11 @@ namespace LearningCSharp
 
             for (int i = 0; i < shaders.Length; i++)
                 Marshal.FreeHGlobal(shaderStagesCreateInfos[i].Name);
+        }
+
+        public GraphicsPipeline(LogicalDevice device, Shader[] shaders, VulkanSurface surface)
+        {
+            Construct(device, shaders, surface);
         }
 
         PipelineViewportStateCreateInfo CreateViewportStateCreateInfo(ref Viewport viewport, ref Rect2D scissor)
@@ -192,17 +197,23 @@ namespace LearningCSharp
             }
         }
 
-        public void Dispose()
+        void IDisposable.Dispose()
         {
             RenderPass.Dispose();
             nativeDevice.DestroyPipelineLayout(Layout);
             nativeDevice.DestroyPipeline(NativePipeline);
-            GC.SuppressFinalize(this);
+        }
+
+        public void Dispose(bool supressFinalize = true)
+        {
+            (this as IDisposable).Dispose();
+            if (supressFinalize)
+                GC.SuppressFinalize(this);
         }
 
         ~GraphicsPipeline()
         {
-            Dispose();
+            Dispose(false);
         }
     }
 }

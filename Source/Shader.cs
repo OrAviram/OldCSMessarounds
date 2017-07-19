@@ -11,7 +11,7 @@ namespace LearningCSharp
         public ShaderStageFlags PipelineShaderStage { get; private set; }
         private Device device;
 
-        private Shader(Device device, IntPtr code, int size, ShaderStageFlags shaderStage)
+        void Construct(Device device, IntPtr code, int size, ShaderStageFlags shaderStage)
         {
             PipelineShaderStage = shaderStage;
             this.device = device;
@@ -25,6 +25,20 @@ namespace LearningCSharp
             NativeShaderModule = device.CreateShaderModule(ref createInfo);
         }
 
+        private Shader(Device device, IntPtr code, int size, ShaderStageFlags shaderStage)
+        {
+            Construct(device, code, size, shaderStage);
+        }
+
+        public void ConstructLoad(string path, LogicalDevice device, ShaderStageFlags shaderStage)
+        {
+            byte[] file = File.ReadAllBytes(path);
+            fixed (void* codePtr = &file[0])
+                Construct(device.NativeDevice, (IntPtr)codePtr, file.Length, shaderStage);
+
+            GC.ReRegisterForFinalize(this);
+        }
+
         public static Shader LoadShader(string path, LogicalDevice device, ShaderStageFlags shaderStage)
         {
             byte[] file = File.ReadAllBytes(path);
@@ -32,15 +46,22 @@ namespace LearningCSharp
                 return new Shader(device.NativeDevice, (IntPtr)codePtr, file.Length, shaderStage);
         }
 
-        public void Dispose()
+        void IDisposable.Dispose()
         {
             device.DestroyShaderModule(NativeShaderModule);
             GC.SuppressFinalize(this);
         }
 
+        public void Dispose(bool supressFinalize = true)
+        {
+            (this as IDisposable).Dispose();
+            if (supressFinalize)
+                GC.SuppressFinalize(this);
+        }
+
         ~Shader()
         {
-            Dispose();
+            Dispose(false);
         }
     }
 }

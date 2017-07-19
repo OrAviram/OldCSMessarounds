@@ -16,7 +16,7 @@ namespace LearningCSharp
         private ImageView[] imageViews;
         private FrameBuffer[] frameBuffers;
 
-        public VulkanSwapchain(LogicalDevice device, VulkanSurface surface, RenderPass renderPass)
+        public void Construct(LogicalDevice device, VulkanSurface surface, RenderPass renderPass)
         {
             nativeDevice = device.NativeDevice;
             this.surface = surface;
@@ -48,9 +48,9 @@ namespace LearningCSharp
             CreateImageViews();
         }
 
-        public FrameBuffer GetFrameBuffer(int index)
+        public VulkanSwapchain(LogicalDevice device, VulkanSurface surface, RenderPass renderPass)
         {
-            return frameBuffers[index];
+            Construct(device, surface, renderPass);
         }
 
         void CreateImageViews()
@@ -73,21 +73,31 @@ namespace LearningCSharp
             }
         }
 
-        public void Dispose()
+        public FrameBuffer GetFrameBuffer(int index)
+        {
+            return frameBuffers[index];
+        }
+
+        void IDisposable.Dispose()
         {
             for (int i = 0; i < imageViews.Length; i++)
             {
                 nativeDevice.DestroyImageView(imageViews[i]);
                 frameBuffers[i].Dispose();
             }
-
             nativeDevice.DestroySwapchain(NativeSwapchain);
-            GC.SuppressFinalize(this);
+        }
+
+        public void Dispose(bool supressFinalize = true)
+        {
+            (this as IDisposable).Dispose();
+            if (supressFinalize)
+                GC.SuppressFinalize(this);
         }
 
         ~VulkanSwapchain()
         {
-            Dispose();
+            Dispose(false);
         }
     }
 }

@@ -49,7 +49,7 @@ namespace LearningCSharp
         private SDL.SDL_SysWMinfo systemInfo;
 
         private Window() { }
-
+        
         public Window(int width, int height, string title)
         {
             SDLHandle = SDL.SDL_CreateWindow(title, SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, width, height, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN | SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);

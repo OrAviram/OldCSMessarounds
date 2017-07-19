@@ -17,7 +17,7 @@ namespace LearningCSharp
         private PhysicalDevice nativePhysicalDevice;
         private Window window;
 
-        public VulkanSurface(Window window, VulkanInstance instance, VulkanPhysicalDevice physicalDevice)
+        public void Construct(Window window, VulkanInstance instance, VulkanPhysicalDevice physicalDevice)
         {
             nativeInstance = instance.NativeInstance;
             nativePhysicalDevice = physicalDevice.NativeDevice;
@@ -42,6 +42,11 @@ namespace LearningCSharp
             CalculateImageCount();
             ChooseFormat(nativePhysicalDevice.GetSurfaceFormats(NativeSurface));
             ChoosePresentMode(nativePhysicalDevice.GetSurfacePresentModes(NativeSurface));
+        }
+
+        public VulkanSurface(Window window, VulkanInstance instance, VulkanPhysicalDevice physicalDevice)
+        {
+            Construct(window, instance, physicalDevice);
         }
 
         void ChooseExtents()
@@ -101,15 +106,22 @@ namespace LearningCSharp
             PresentMode = bestMode;
         }
 
-        public void Dispose()
+
+        void IDisposable.Dispose()
         {
             nativeInstance.DestroySurface(NativeSurface);
-            GC.SuppressFinalize(this);
+        }
+
+        public void Dispose(bool supressFinalize = true)
+        {
+            (this as IDisposable).Dispose();
+            if (supressFinalize)
+                GC.SuppressFinalize(this);
         }
 
         ~VulkanSurface()
         {
-            Dispose();
+            Dispose(false);
         }
     }
 }
