@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Drawing;
+using System.Threading;
 using SDL2;
 using Version = SharpVulkan.Version;
 
@@ -17,12 +17,8 @@ namespace LearningCSharp
             window = new Window(1200, 700, "Vulkan Sandbox");
             using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window))
             {
-                Size oldSize = Size.Empty;
-
                 while (!window.IsClosed)
                 {
-                    oldSize = window.Size;
-
                     renderer.DrawFrame();
                     while (SDL.SDL_PollEvent(out SDL.SDL_Event e) != 0)
                     {
@@ -35,6 +31,7 @@ namespace LearningCSharp
                             renderer.RecreateSwapchain();
                         }
                     }
+                    Thread.Sleep(100);
                 }
             }
             QuitSDL();
