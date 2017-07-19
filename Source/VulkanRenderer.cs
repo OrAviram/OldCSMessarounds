@@ -102,7 +102,7 @@ namespace LearningCSharp
                     {
                         Color = new ClearColorValue
                         {
-                            Float32 = new ClearColorValue.Float32Array { Value0 = 0, Value1 = .1f, Value2 = .06f, Value3 = 0 },
+                            Float32 = new ClearColorValue.Float32Array { Value0 = 0, Value1 = 0, Value2 = 0, Value3 = 1 },
                         },
                     };
 
@@ -118,7 +118,7 @@ namespace LearningCSharp
                     commandBuffer->BeginRenderPass(ref renderPassBeginInfo, SubpassContents.Inline);
 
                     commandBuffer->BindPipeline(PipelineBindPoint.Graphics, Pipeline.NativePipeline);
-                    commandBuffer->Draw(3, 1, 0, 0);
+                    commandBuffer->Draw(6, 1, 0, 0);
 
                     commandBuffer->EndRenderPass();
                     commandBuffer->End();
