@@ -31,7 +31,7 @@ namespace LearningCSharp
                             renderer.RecreateSwapchain();
                         }
                     }
-                    Thread.Sleep(100);
+                    Thread.Sleep(10);
                 }
             }
             QuitSDL();

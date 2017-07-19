@@ -198,7 +198,6 @@ namespace LearningCSharp
 
         public void Dispose()
         {
-            LogicalDevice.GraphicsQueue.WaitIdle();
             LogicalDevice.NativeDevice.WaitIdle();
 
             imageAvailableSemaphore.Dispose();
