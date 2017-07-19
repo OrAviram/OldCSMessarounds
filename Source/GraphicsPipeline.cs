@@ -43,8 +43,11 @@ namespace LearningCSharp
             PipelineShaderStageCreateInfo* shaderStagesCreateInfos = stackalloc PipelineShaderStageCreateInfo[shaders.Length];
             SetShaderStageCreateInfos(shaderStagesCreateInfos, shaders);
 
+
+            VertexInputBindingDescription bindingDescription = Vertex.BindingDescription;
+            PipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = CreateVertexInputCreateInfo(Vertex.AttributeDescriptions, ref bindingDescription);
+
             PipelineViewportStateCreateInfo viewportStateCreateInfo = CreateViewportStateCreateInfo(ref viewport, ref scissor);
-            PipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = CreateVertexInputCreateInfo();
             PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = CreateInputAssemblyCreateInfo();
             PipelineRasterizationStateCreateInfo rasterizerCreateInfo = CreateResterizationCreateInfo();
             PipelineMultisampleStateCreateInfo multisamplingCreateInfo = CreateMultisamplingCreateInfo();
@@ -99,16 +102,20 @@ namespace LearningCSharp
             }
         }
 
-        PipelineVertexInputStateCreateInfo CreateVertexInputCreateInfo()
+        PipelineVertexInputStateCreateInfo CreateVertexInputCreateInfo(VertexInputAttributeDescription[] attributeDescriptions, ref VertexInputBindingDescription bindingDescription)
         {
-            return new PipelineVertexInputStateCreateInfo
+            fixed (void* bindingDescriptionPtr = &bindingDescription)
+            fixed (void* attributeDescriptionsPtr = &attributeDescriptions[0])
             {
-                StructureType = StructureType.PipelineVertexInputStateCreateInfo,
-                VertexAttributeDescriptionCount = 0,
-                VertexAttributeDescriptions = IntPtr.Zero,
-                VertexBindingDescriptionCount = 0,
-                VertexBindingDescriptions = IntPtr.Zero,
-            };
+                return new PipelineVertexInputStateCreateInfo
+                {
+                    StructureType = StructureType.PipelineVertexInputStateCreateInfo,
+                    VertexBindingDescriptionCount = 1,
+                    VertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
+                    VertexBindingDescriptions = (IntPtr)bindingDescriptionPtr,
+                    VertexAttributeDescriptions = (IntPtr)attributeDescriptionsPtr,
+                };
+            }
         }
 
         PipelineInputAssemblyStateCreateInfo CreateInputAssemblyCreateInfo()

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Drawing;
+using System.Numerics;
 using System.Threading;
 using SDL2;
 using Version = SharpVulkan.Version;
@@ -14,8 +16,23 @@ namespace LearningCSharp
         {
             InitSDL();
 
+            const float HEIGHT = .5f;
+
+            /*vec2(-.5, -HEIGHT), vec2(0, HEIGHT), vec2(-1, HEIGHT),
+//	vec2(.5, -HEIGHT), vec2(1, HEIGHT), vec2(0, HEIGHT)*/
+
+            Triangle triangleA = new Triangle(
+                new Vertex(new Vector2(-.5f, -HEIGHT), Color.Red),
+                new Vertex(new Vector2(0, HEIGHT), Color.Red),
+                new Vertex(new Vector2(-1, HEIGHT), Color.Red));
+
+            Triangle triangleB = new Triangle(
+                new Vertex(new Vector2(.5f, -HEIGHT), Color.Red),
+                new Vertex(new Vector2(1, HEIGHT), Color.Red),
+                new Vertex(new Vector2(0, HEIGHT), Color.Red));
+
             window = new Window(1200, 700, "Vulkan Sandbox");
-            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window))
+            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleA, triangleB }))
             {
                 while (!window.IsClosed)
                 {

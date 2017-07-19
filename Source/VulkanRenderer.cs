@@ -1,10 +1,66 @@
 ﻿using System;
+using System.Drawing;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using SharpVulkan;
 using Version = SharpVulkan.Version;
+using Buffer = SharpVulkan.Buffer;
 
 namespace LearningCSharp
 {
+    public struct Vertex
+    {
+        public Vector2 position;
+        public Color color;
+
+        public Vertex(Vector2 position, Color color)
+        {
+            this.position = position;
+            this.color = color;
+        }
+
+        public static VertexInputBindingDescription BindingDescription
+        {
+            get
+            {
+                return new VertexInputBindingDescription
+                {
+                    Binding = 0,
+                    InputRate = VertexInputRate.Vertex,
+                    Stride = (uint)Marshal.SizeOf(typeof(Vertex)),
+                };
+            }
+        }
+
+        public static VertexInputAttributeDescription[] AttributeDescriptions
+        {
+            get
+            {
+                return new VertexInputAttributeDescription[]
+                {
+                    new VertexInputAttributeDescription { Binding = 0, Location = 0, Format = Format.R32G32SFloat, Offset = (uint)Marshal.OffsetOf(typeof(Vertex), "position") },
+                    new VertexInputAttributeDescription { Binding = 0, Location = 1, Format = Format.R32G32B32SFloat, Offset = (uint)Marshal.OffsetOf(typeof(Vertex), "color") },
+                };
+            }
+        }
+    }
+
+    public struct Triangle
+    {
+        public Vertex a;
+        public Vertex b;
+        public Vertex c;
+
+        public Vertex[] AsArray => new Vertex[] { a, b, c };
+        
+        public Triangle(Vertex a, Vertex b, Vertex c)
+        {
+            this.a = a;
+            this.b = b;
+            this.c = c;
+        }
+    }
+
     public unsafe class VulkanRenderer : IDisposable
     {
         public VulkanInstance Instance { get; private set; }
@@ -12,6 +68,9 @@ namespace LearningCSharp
         public LogicalDevice LogicalDevice { get; private set; }
         public VulkanSurface Surface { get; private set; }
         public VulkanSwapchain Swapchain { get; private set; }
+
+        public Buffer VertexBuffer { get; private set; }
+        public DeviceMemory DeviceMemory { get; private set; }
 
         public Shader VertexShader { get; private set; }
         public Shader FragmentShader { get; private set; }
@@ -24,13 +83,16 @@ namespace LearningCSharp
         private Window mainWindow;
         private VulkanSemaphore imageAvailableSemaphore;
         private VulkanSemaphore renderFinishedSemaphore;
+        private Triangle[] triangles;
 
         private const string VERTEX_SHADER_FILE_PATH = "Shaders/vert.spv";
         private const string FRAGMENT_SHADER_FILE_PATH = "Shaders/frag.spv";
 
-        public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion, Window mainWindow)
+        public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion, Window mainWindow, Triangle[] triangles)
         {
+            this.triangles = triangles;
             this.mainWindow = mainWindow;
+
             ApplicationInfo appInfo = new ApplicationInfo
             {
                 StructureType = StructureType.ApplicationInfo,
@@ -54,7 +116,7 @@ namespace LearningCSharp
 
         void Initialize(ref ApplicationInfo appInfo)
         {
-            fixed(ApplicationInfo* appInfoPtr = &appInfo)
+            fixed (ApplicationInfo* appInfoPtr = &appInfo)
                 Instance = new VulkanInstance(appInfoPtr, VulkanUtils.Extensions, VulkanUtils.ValidationLayers);
 
             debugger = new VulkanDebugger(Instance.NativeInstance);
@@ -76,28 +138,8 @@ namespace LearningCSharp
 
             imageAvailableSemaphore = new VulkanSemaphore(LogicalDevice.NativeDevice);
             renderFinishedSemaphore = new VulkanSemaphore(LogicalDevice.NativeDevice);
-        }
 
-        public void RecreateSwapchain()
-        {
-            LogicalDevice.NativeDevice.WaitIdle();
-
-            Swapchain.Dispose(false);
-            Surface.Dispose(false);
-            Pipeline.Dispose(false);
-            FragmentShader.Dispose(false);
-            VertexShader.Dispose(false);
-
-            VertexShader.ConstructLoad(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
-            FragmentShader.ConstructLoad(FRAGMENT_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Fragment);
-            Pipeline.Construct(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
-            Surface.Construct(mainWindow, Instance, PhysicalDevice);
-            Swapchain.Construct(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
-
-            fixed (CommandBuffer* commandBuffersPtr = &commandBuffers[0])
-                LogicalDevice.NativeDevice.FreeCommandBuffers(CommandPool.NativeCommandPool, (uint)commandBuffers.Length, commandBuffersPtr);
-
-            CreateCommandBuffers();
+            CreateVertexBuffer();
         }
 
         void CreateCommandBuffers()
@@ -143,12 +185,89 @@ namespace LearningCSharp
                     commandBuffer->BeginRenderPass(ref renderPassBeginInfo, SubpassContents.Inline);
 
                     commandBuffer->BindPipeline(PipelineBindPoint.Graphics, Pipeline.NativePipeline);
-                    commandBuffer->Draw(6, 1, 0, 0);
+
+                    Buffer[] buffers = new Buffer[] { VertexBuffer };
+                    ulong[] offsets = new ulong[] { 0 };
+                    fixed (Buffer* buffersPtr = &buffers[0])
+                    fixed (ulong* offsetsPtr = &offsets[0])
+                        commandBuffer->BindVertexBuffers(0, 1, buffersPtr, offsetsPtr);
+
+                    commandBuffer->Draw((uint)triangles.Length * 3, 1, 0, 0);
                     
                     commandBuffer->EndRenderPass();
                     commandBuffer->End();
                 }
             }
+        }
+
+        void CreateVertexBuffer()
+        {
+            BufferCreateInfo createInfo = new BufferCreateInfo
+            {
+                StructureType = StructureType.BufferCreateInfo,
+                Size = (uint)(Marshal.SizeOf(typeof(Vertex)) * triangles.Length * 3),
+                Usage = BufferUsageFlags.VertexBuffer,
+                SharingMode = SharingMode.Exclusive,
+            };
+            VertexBuffer = LogicalDevice.NativeDevice.CreateBuffer(ref createInfo);
+
+            LogicalDevice.NativeDevice.GetBufferMemoryRequirements(VertexBuffer, out MemoryRequirements bufferMemoryRequirements);
+            PhysicalDevice.NativeDevice.GetMemoryProperties(out PhysicalDeviceMemoryProperties deviceMemoryProperties);
+
+            uint memoryTypeIndex = 0;
+            PhysicalDeviceMemoryProperties.MemoryTypesArray* memoryTypes = &deviceMemoryProperties.MemoryTypes;
+            for (int i = 0; i < deviceMemoryProperties.MemoryTypeCount; i++)
+            {
+                if ((bufferMemoryRequirements.MemoryTypeBits & (1 << i)) != 0 && memoryTypes[i].Value0.PropertyFlags.HasFlag(MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent))
+                {
+                    memoryTypeIndex = (uint)i;
+                    break;
+                }
+            }
+
+            MemoryAllocateInfo allocateInfo = new MemoryAllocateInfo
+            {
+                StructureType = StructureType.MemoryAllocateInfo,
+                AllocationSize = bufferMemoryRequirements.Size,
+                MemoryTypeIndex = memoryTypeIndex,
+            };
+            DeviceMemory = LogicalDevice.NativeDevice.AllocateMemory(ref allocateInfo);
+            LogicalDevice.NativeDevice.BindBufferMemory(VertexBuffer, DeviceMemory, 0);
+
+            IntPtr bufferDataPointer = LogicalDevice.NativeDevice.MapMemory(DeviceMemory, 0, createInfo.Size, MemoryMapFlags.None);
+            IntPtr[] trianglesData = new IntPtr[triangles.Length * Marshal.SizeOf(triangles)];
+            int currentTriangleIndex = 0;
+            for (int i = 0; i < trianglesData.Length; i++, currentTriangleIndex += 3)
+            {
+                Marshal.StructureToPtr(triangles[currentTriangleIndex].AsArray[i % currentTriangleIndex], trianglesData[i], false);
+            }
+            Marshal.Copy(trianglesData, 0, bufferDataPointer, (int)createInfo.Size);
+            LogicalDevice.NativeDevice.UnmapMemory(DeviceMemory);
+        }
+
+        public void RecreateSwapchain()
+        {
+            LogicalDevice.NativeDevice.WaitIdle();
+
+            LogicalDevice.NativeDevice.DestroyBuffer(VertexBuffer);
+            LogicalDevice.NativeDevice.FreeMemory(DeviceMemory);
+
+            Swapchain.Dispose(false);
+            Surface.Dispose(false);
+            Pipeline.Dispose(false);
+            FragmentShader.Dispose(false);
+            VertexShader.Dispose(false);
+
+            VertexShader.ConstructLoad(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
+            FragmentShader.ConstructLoad(FRAGMENT_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Fragment);
+            Pipeline.Construct(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
+            Surface.Construct(mainWindow, Instance, PhysicalDevice);
+            Swapchain.Construct(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
+
+            fixed (CommandBuffer* commandBuffersPtr = &commandBuffers[0])
+                LogicalDevice.NativeDevice.FreeCommandBuffers(CommandPool.NativeCommandPool, (uint)commandBuffers.Length, commandBuffersPtr);
+
+            CreateCommandBuffers();
         }
 
         public void DrawFrame()
