@@ -96,7 +96,6 @@ namespace LearningCSharp
                         Flags = CommandBufferUsageFlags.SimultaneousUse,
                         InheritanceInfo = IntPtr.Zero,
                     };
-                    commandBuffer->Begin(ref beginInfo);
 
                     ClearValue clearColor = new ClearValue
                     {
@@ -115,6 +114,7 @@ namespace LearningCSharp
                         ClearValueCount = 1,
                         ClearValues = new IntPtr(&clearColor)
                     };
+                    commandBuffer->Begin(ref beginInfo);
                     commandBuffer->BeginRenderPass(ref renderPassBeginInfo, SubpassContents.Inline);
 
                     commandBuffer->BindPipeline(PipelineBindPoint.Graphics, Pipeline.NativePipeline);
