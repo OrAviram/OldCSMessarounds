@@ -16,7 +16,7 @@ namespace LearningCSharp
         {
             InitSDL();
 
-            const float HEIGHT = .5f;
+            const float HEIGHT = 1;
 
             Triangle triangleA = new Triangle(
                 new Vertex(new Vector2(-.5f, -HEIGHT), Vector3.UnitX),
@@ -28,8 +28,13 @@ namespace LearningCSharp
                 new Vertex(new Vector2(1, HEIGHT), Vector3.UnitZ),
                 new Vertex(new Vector2(0, HEIGHT), Vector3.UnitY));
 
+            Triangle triangleC = new Triangle(
+                new Vertex(new Vector2(0, -.5f), Vector3.One),
+                new Vertex(new Vector2(1, 1), Vector3.One),
+                new Vertex(new Vector2(-1, 1), Vector3.One));
+
             window = new Window(1200, 700, "Vulkan Sandbox");
-            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleA, triangleB }))
+            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleA, triangleB, triangleC }))
             {
                 while (!window.IsClosed)
                 {
