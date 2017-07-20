@@ -13,7 +13,6 @@ namespace LearningCSharp
         public uint BufferSize { get; private set; }
 
         public readonly int typeSizeInBytes = Marshal.SizeOf(typeof(T));
-        public readonly int typeSizeInFloats = Marshal.SizeOf(typeof(T)) / sizeof(float);
 
         private Device device;
 
@@ -22,16 +21,16 @@ namespace LearningCSharp
             this.device = device;
 
             BufferSize = (uint)(typeSizeInBytes * bufferData.Length);
-            float[] data = new float[BufferSize / sizeof(float)];
+            byte[] data = new byte[BufferSize];
 
             int dataIndex = 0;
             for (int bufferDataIndex = 0; bufferDataIndex < bufferData.Length; bufferDataIndex++)
             {
-                IntPtr currentFloatPtr = Marshal.UnsafeAddrOfPinnedArrayElement(bufferData, bufferDataIndex);
-                for (int floatIndex = 0; floatIndex < typeSizeInFloats; floatIndex++)
+                IntPtr currentBytePointer = Marshal.UnsafeAddrOfPinnedArrayElement(bufferData, bufferDataIndex);
+                for (int floatIndex = 0; floatIndex < typeSizeInBytes; floatIndex++)
                 {
-                    data[dataIndex++] = *((float*)currentFloatPtr.ToPointer());
-                    currentFloatPtr += sizeof(float);
+                    data[dataIndex++] = *((byte*)currentBytePointer.ToPointer());
+                    currentBytePointer += sizeof(byte);
                 }
             }
 
@@ -43,7 +42,7 @@ namespace LearningCSharp
                 Usage = usage,
             };
             NativeBuffer = device.CreateBuffer(ref createInfo);
-
+            
             device.GetBufferMemoryRequirements(NativeBuffer, out MemoryRequirements memoryRequirements);
             physicalDevice.GetMemoryProperties(out PhysicalDeviceMemoryProperties memoryProperties);
 
@@ -60,7 +59,7 @@ namespace LearningCSharp
             AllocateMemory(memoryRequirements, memoryTypeIndex, data);
         }
 
-        void AllocateMemory(MemoryRequirements memoryRequirements, uint memoryTypeIndex, float[] data)
+        void AllocateMemory(MemoryRequirements memoryRequirements, uint memoryTypeIndex, byte[] data)
         {
             MemoryAllocateInfo allocateInfo = new MemoryAllocateInfo
             {
