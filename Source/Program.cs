@@ -2,7 +2,6 @@
 using System.Numerics;
 using System.Threading;
 using SDL2;
-using SharpVulkan;
 using Version = SharpVulkan.Version;
 
 namespace LearningCSharp
