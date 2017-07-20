@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Drawing;
 using System.Numerics;
 using System.Threading;
 using SDL2;
@@ -14,6 +13,9 @@ namespace LearningCSharp
 
         static unsafe void Main()
         {
+            var b = new Buffer<Vector3>(new Vector3[] { new Vector3(0, 1, 100), new Vector3(3, -6, -5), new Vector3(15, 4, 1.3f) });
+            return;
+
             InitSDL();
 
             const float HEIGHT = 1;
