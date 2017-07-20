@@ -66,8 +66,7 @@ namespace LearningCSharp
         public VulkanSurface Surface { get; private set; }
         public VulkanSwapchain Swapchain { get; private set; }
 
-        public Buffer VertexBuffer { get; private set; }
-        public DeviceMemory DeviceMemory { get; private set; }
+        public Buffer<Triangle> VertexBuffer { get; private set; }
 
         public Shader VertexShader { get; private set; }
         public Shader FragmentShader { get; private set; }
@@ -129,85 +128,14 @@ namespace LearningCSharp
             Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
 
             Swapchain = new VulkanSwapchain(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
+            VertexBuffer = new Buffer<Triangle>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, triangles, BufferUsageFlags.VertexBuffer);
 
-            CreateVertexBuffer();
             CommandPool = new VulkanCommandPool(LogicalDevice.NativeDevice, (uint)PhysicalDevice.QueueFamilyIndices.graphicsFamily);
             commandBuffers = new CommandBuffer[Swapchain.ImageCount];
             CreateCommandBuffers();
 
             imageAvailableSemaphore = new VulkanSemaphore(LogicalDevice.NativeDevice);
             renderFinishedSemaphore = new VulkanSemaphore(LogicalDevice.NativeDevice);
-
-        }
-
-        void CreateVertexBuffer()
-        {
-            BufferCreateInfo createInfo = new BufferCreateInfo
-            {
-                StructureType = StructureType.BufferCreateInfo,
-                Size = (uint)(Marshal.SizeOf(typeof(Triangle)) * triangles.Length),
-                Usage = BufferUsageFlags.VertexBuffer,
-                SharingMode = SharingMode.Exclusive,
-            };
-            VertexBuffer = LogicalDevice.NativeDevice.CreateBuffer(ref createInfo);
-
-            LogicalDevice.NativeDevice.GetBufferMemoryRequirements(VertexBuffer, out MemoryRequirements bufferMemoryRequirements);
-            PhysicalDevice.NativeDevice.GetMemoryProperties(out PhysicalDeviceMemoryProperties deviceMemoryProperties);
-
-            uint memoryTypeIndex = 0;
-            for (int i = 0; i < deviceMemoryProperties.MemoryTypeCount; i++)
-            {
-                MemoryType* memoryType = &deviceMemoryProperties.MemoryTypes.Value0 + i;
-                if ((bufferMemoryRequirements.MemoryTypeBits & (1 << i)) != 0 && memoryType->PropertyFlags.HasFlag(MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent))
-                {
-                    memoryTypeIndex = (uint)i;
-                    break;
-                }
-            }
-
-            MemoryAllocateInfo allocateInfo = new MemoryAllocateInfo
-            {
-                StructureType = StructureType.MemoryAllocateInfo,
-                AllocationSize = bufferMemoryRequirements.Size,
-                MemoryTypeIndex = memoryTypeIndex,
-            };
-            DeviceMemory = LogicalDevice.NativeDevice.AllocateMemory(ref allocateInfo);
-            LogicalDevice.NativeDevice.BindBufferMemory(VertexBuffer, DeviceMemory, 0);
-
-            IntPtr bufferDataPointer = LogicalDevice.NativeDevice.MapMemory(DeviceMemory, 0, createInfo.Size, MemoryMapFlags.None);
-            float[] data = new float[Marshal.SizeOf(typeof(Triangle)) * triangles.Length / sizeof(float)];
-
-            int currentData = 0;
-            for (int triangleIndex = 0; triangleIndex < triangles.Length; triangleIndex++)
-            {
-                Triangle currentTri = triangles[triangleIndex];
-                Vertex a = currentTri.a;
-                Vertex b = currentTri.b;
-                Vertex c = currentTri.c;
-
-                data[currentData++] = a.position.X;
-                data[currentData++] = a.position.Y;
-
-                data[currentData++] = a.color.X;
-                data[currentData++] = a.color.Y;
-                data[currentData++] = a.color.Z;
-
-                data[currentData++] = b.position.X;
-                data[currentData++] = b.position.Y;
-
-                data[currentData++] = b.color.X;
-                data[currentData++] = b.color.Y;
-                data[currentData++] = b.color.Z;
-
-                data[currentData++] = c.position.X;
-                data[currentData++] = c.position.Y;
-
-                data[currentData++] = c.color.X;
-                data[currentData++] = c.color.Y;
-                data[currentData++] = c.color.Z;
-            }
-            Marshal.Copy(data, 0, bufferDataPointer, (int)createInfo.Size / sizeof(float));
-            LogicalDevice.NativeDevice.UnmapMemory(DeviceMemory);
         }
 
         void CreateCommandBuffers()
@@ -254,7 +182,7 @@ namespace LearningCSharp
 
                     commandBuffer->BindPipeline(PipelineBindPoint.Graphics, Pipeline.NativePipeline);
 
-                    Buffer[] buffers = new Buffer[] { VertexBuffer };
+                    Buffer[] buffers = new Buffer[] { VertexBuffer.NativeBuffer };
                     ulong[] offsets = new ulong[] { 0 };
                     fixed (Buffer* buffersPtr = &buffers[0])
                     fixed (ulong* offsetsPtr = &offsets[0])
@@ -339,8 +267,7 @@ namespace LearningCSharp
         {
             LogicalDevice.NativeDevice.WaitIdle();
 
-            LogicalDevice.NativeDevice.DestroyBuffer(VertexBuffer);
-            LogicalDevice.NativeDevice.FreeMemory(DeviceMemory);
+            VertexBuffer.Dispose();
 
             imageAvailableSemaphore.Dispose();
             renderFinishedSemaphore.Dispose();

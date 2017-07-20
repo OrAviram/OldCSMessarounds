@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Threading;
 using SDL2;
+using SharpVulkan;
 using Version = SharpVulkan.Version;
 
 namespace LearningCSharp
@@ -13,9 +14,6 @@ namespace LearningCSharp
 
         static unsafe void Main()
         {
-            var b = new Buffer<Vector3>(new Vector3[] { new Vector3(0, 1, 100), new Vector3(3, -6, -5), new Vector3(15, 4, 1.3f) });
-            return;
-
             InitSDL();
 
             const float HEIGHT = 1;
@@ -36,7 +34,7 @@ namespace LearningCSharp
                 new Vertex(new Vector2(-1, 1), Vector3.One));
 
             window = new Window(1200, 700, "Vulkan Sandbox");
-            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleA, triangleB, triangleC }))
+            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleC, triangleA, triangleB }))
             {
                 while (!window.IsClosed)
                 {
