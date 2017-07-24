@@ -32,6 +32,14 @@ namespace LearningCSharp
                 new Vertex(new Vector2(1, 1), Vector3.One),
                 new Vertex(new Vector2(-1, 1), Vector3.One));
 
+            Matrix4x4 m = Matrix4x4.CreateTranslation(0, 0, 0);
+            m *= Matrix4x4.CreateRotationZ((float)Math.PI);
+            m *= Matrix4x4.CreateScale(.75f, 2, 1);
+            Console.WriteLine(m);
+            triangleC.a.position = Vector2.Transform(triangleC.a.position, m);
+            triangleC.b.position = Vector2.Transform(triangleC.b.position, m);
+            triangleC.c.position = Vector2.Transform(triangleC.c.position, m);
+
             window = new Window(1200, 700, "Vulkan Sandbox");
             using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleC, triangleA, triangleB }))
             {

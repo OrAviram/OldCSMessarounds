@@ -43,7 +43,6 @@ namespace LearningCSharp
             PipelineShaderStageCreateInfo* shaderStagesCreateInfos = stackalloc PipelineShaderStageCreateInfo[shaders.Length];
             SetShaderStageCreateInfos(shaderStagesCreateInfos, shaders);
 
-
             VertexInputBindingDescription bindingDescription = Vertex.BindingDescription;
             PipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = CreateVertexInputCreateInfo(Vertex.AttributeDescriptions, ref bindingDescription);
 
