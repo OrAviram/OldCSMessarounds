@@ -15,33 +15,20 @@ namespace LearningCSharp
         {
             InitSDL();
 
-            const float HEIGHT = 1;
+            const float SIZE = .7f;
 
-            Triangle triangleA = new Triangle(
-                new Vertex(new Vector2(-.5f, -HEIGHT), Vector3.UnitX),
-                new Vertex(new Vector2(0, HEIGHT), Vector3.UnitY),
-                new Vertex(new Vector2(-1, HEIGHT), Vector3.UnitZ));
-
-            Triangle triangleB = new Triangle(
-                new Vertex(new Vector2(.5f, -HEIGHT), Vector3.UnitX),
-                new Vertex(new Vector2(1, HEIGHT), Vector3.UnitZ),
-                new Vertex(new Vector2(0, HEIGHT), Vector3.UnitY));
-
-            Triangle triangleC = new Triangle(
-                new Vertex(new Vector2(0, -.5f), Vector3.One),
-                new Vertex(new Vector2(1, 1), Vector3.One),
-                new Vertex(new Vector2(-1, 1), Vector3.One));
-
-            Matrix4x4 m = Matrix4x4.CreateTranslation(0, 0, 0);
-            m *= Matrix4x4.CreateRotationZ((float)Math.PI);
-            m *= Matrix4x4.CreateScale(.75f, 2, 1);
-            Console.WriteLine(m);
-            triangleC.a.position = Vector2.Transform(triangleC.a.position, m);
-            triangleC.b.position = Vector2.Transform(triangleC.b.position, m);
-            triangleC.c.position = Vector2.Transform(triangleC.c.position, m);
+            Vertex[] vertices = new Vertex[] 
+            {
+                new Vertex(new Vector2(-SIZE, SIZE), Vector3.UnitX),
+                new Vertex(new Vector2(-SIZE, -SIZE), Vector3.UnitY),
+                new Vertex(new Vector2(SIZE, -SIZE), Vector3.UnitZ),
+                new Vertex(new Vector2(SIZE, SIZE), Vector3.One),
+            };
+            TriangleIndices triangleA = new TriangleIndices(0, 1, 3);
+            TriangleIndices triangleB = new TriangleIndices(1, 2, 3);
 
             window = new Window(1200, 700, "Vulkan Sandbox");
-            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new Triangle[] { triangleC, triangleA, triangleB }))
+            using (renderer = new VulkanRenderer("Vulkan Sandbox", new Version(1, 0, 0), "Unknown Engine", new Version(1, 0, 0), window, new TriangleIndices[] { triangleA, triangleB }, vertices))
             {
                 while (!window.IsClosed)
                 {

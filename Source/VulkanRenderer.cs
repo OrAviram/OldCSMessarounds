@@ -44,13 +44,13 @@ namespace LearningCSharp
         }
     }
 
-    public struct Triangle
+    public struct TriangleIndices
     {
-        public Vertex a;
-        public Vertex b;
-        public Vertex c;
+        public uint a;
+        public uint b;
+        public uint c;
         
-        public unsafe Triangle(Vertex a, Vertex b, Vertex c)
+        public unsafe TriangleIndices(uint a, uint b, uint c)
         {
             this.a = a;
             this.b = b;
@@ -66,7 +66,8 @@ namespace LearningCSharp
         public VulkanSurface Surface { get; private set; }
         public VulkanSwapchain Swapchain { get; private set; }
 
-        public Buffer<Triangle> VertexBuffer { get; private set; }
+        public Buffer<Vertex> VertexBuffer { get; private set; }
+        public Buffer<TriangleIndices> IndexBuffer { get; private set; }
 
         public Shader VertexShader { get; private set; }
         public Shader FragmentShader { get; private set; }
@@ -79,14 +80,17 @@ namespace LearningCSharp
         private Window mainWindow;
         private VulkanSemaphore imageAvailableSemaphore;
         private VulkanSemaphore renderFinishedSemaphore;
-        private Triangle[] triangles;
+
+        private TriangleIndices[] triangles;
+        private Vertex[] vertices;
 
         private const string VERTEX_SHADER_FILE_PATH = "Shaders/vert.spv";
         private const string FRAGMENT_SHADER_FILE_PATH = "Shaders/frag.spv";
 
-        public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion, Window mainWindow, Triangle[] triangles)
+        public VulkanRenderer(string applicationName, Version applicationVersion, string engineName, Version engineVersion, Window mainWindow, TriangleIndices[] triangles, Vertex[] vertices)
         {
             this.triangles = triangles;
+            this.vertices = vertices;
             this.mainWindow = mainWindow;
 
             ApplicationInfo appInfo = new ApplicationInfo
@@ -128,7 +132,9 @@ namespace LearningCSharp
             Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
 
             Swapchain = new VulkanSwapchain(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
-            VertexBuffer = new Buffer<Triangle>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, triangles, BufferUsageFlags.VertexBuffer);
+
+            VertexBuffer = new Buffer<Vertex>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, vertices, BufferUsageFlags.VertexBuffer);
+            IndexBuffer = new Buffer<TriangleIndices>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, triangles, BufferUsageFlags.IndexBuffer);
 
             CommandPool = new VulkanCommandPool(LogicalDevice.NativeDevice, (uint)PhysicalDevice.QueueFamilyIndices.graphicsFamily);
             commandBuffers = new CommandBuffer[Swapchain.ImageCount];
@@ -182,14 +188,17 @@ namespace LearningCSharp
 
                     commandBuffer->BindPipeline(PipelineBindPoint.Graphics, Pipeline.NativePipeline);
 
-                    Buffer[] buffers = new Buffer[] { VertexBuffer.NativeBuffer };
+                    Buffer[] vertexBuffers = new Buffer[] { VertexBuffer.NativeBuffer };
                     ulong[] offsets = new ulong[] { 0 };
-                    fixed (Buffer* buffersPtr = &buffers[0])
                     fixed (ulong* offsetsPtr = &offsets[0])
+                    fixed (Buffer* buffersPtr = &vertexBuffers[0])
                         commandBuffer->BindVertexBuffers(0, 1, buffersPtr, offsetsPtr);
 
-                    commandBuffer->Draw((uint)triangles.Length * 3, 1, 0, 0);
-                    
+                    commandBuffer->BindIndexBuffer(IndexBuffer.NativeBuffer, 0, IndexType.UInt32);
+
+                    //commandBuffer->Draw((uint)triangles.Length * 3, 1, 0, 0);
+                    commandBuffer->DrawIndexed((uint)triangles.Length * 3, 1, 0, 0, 0);
+
                     commandBuffer->EndRenderPass();
                     commandBuffer->End();
                 }
@@ -267,6 +276,7 @@ namespace LearningCSharp
         {
             LogicalDevice.NativeDevice.WaitIdle();
 
+            IndexBuffer.Dispose();
             VertexBuffer.Dispose();
 
             imageAvailableSemaphore.Dispose();
