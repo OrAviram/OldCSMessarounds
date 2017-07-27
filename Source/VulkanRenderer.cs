@@ -58,6 +58,13 @@ namespace LearningCSharp
         }
     }
 
+    public struct UniformMVPMatrices
+    {
+        public Matrix4x4 model;
+        public Matrix4x4 view;
+        public Matrix4x4 projection;
+    }
+
     public unsafe class VulkanRenderer : IDisposable
     {
         public VulkanInstance Instance { get; private set; }
