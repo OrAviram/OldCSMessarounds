@@ -14,6 +14,32 @@ namespace LearningCSharp
 
         public readonly int typeSizeInBytes = Marshal.SizeOf(typeof(T));
 
+        private T[] _data;
+
+        public T[] Data
+        {
+            get { return _data; }
+            set
+            {
+                _data = value;
+                byte[] data = new byte[BufferSize];
+
+                int dataIndex = 0;
+                for (int bufferDataIndex = 0; bufferDataIndex < value.Length; bufferDataIndex++)
+                {
+                    IntPtr currentBytePointer = Marshal.UnsafeAddrOfPinnedArrayElement(value, bufferDataIndex);
+                    for (int floatIndex = 0; floatIndex < typeSizeInBytes; floatIndex++)
+                    {
+                        data[dataIndex++] = *((byte*)currentBytePointer.ToPointer());
+                        currentBytePointer += sizeof(byte);
+                    }
+                }
+                IntPtr bufferDataPointer = device.MapMemory(Memory, 0, BufferSize, MemoryMapFlags.None);
+                Marshal.Copy(data, 0, bufferDataPointer, data.Length);
+                device.UnmapMemory(Memory);
+            }
+        }
+
         private Device device;
 
         public Buffer(PhysicalDevice physicalDevice, Device device, T[] bufferData, BufferUsageFlags usage)
@@ -21,18 +47,7 @@ namespace LearningCSharp
             this.device = device;
 
             BufferSize = (uint)(typeSizeInBytes * bufferData.Length);
-            byte[] data = new byte[BufferSize];
-
-            int dataIndex = 0;
-            for (int bufferDataIndex = 0; bufferDataIndex < bufferData.Length; bufferDataIndex++)
-            {
-                IntPtr currentBytePointer = Marshal.UnsafeAddrOfPinnedArrayElement(bufferData, bufferDataIndex);
-                for (int floatIndex = 0; floatIndex < typeSizeInBytes; floatIndex++)
-                {
-                    data[dataIndex++] = *((byte*)currentBytePointer.ToPointer());
-                    currentBytePointer += sizeof(byte);
-                }
-            }
+            
 
             BufferCreateInfo createInfo = new BufferCreateInfo
             {
@@ -56,10 +71,11 @@ namespace LearningCSharp
                     break;
                 }
             }
-            AllocateMemory(memoryRequirements, memoryTypeIndex, data);
+            AllocateMemory(memoryRequirements, memoryTypeIndex);
+            Data = bufferData;
         }
 
-        void AllocateMemory(MemoryRequirements memoryRequirements, uint memoryTypeIndex, byte[] data)
+        void AllocateMemory(MemoryRequirements memoryRequirements, uint memoryTypeIndex)
         {
             MemoryAllocateInfo allocateInfo = new MemoryAllocateInfo
             {
@@ -69,13 +85,9 @@ namespace LearningCSharp
             };
             Memory = device.AllocateMemory(ref allocateInfo);
             device.BindBufferMemory(NativeBuffer, Memory, 0);
-
-            IntPtr bufferDataPointer = device.MapMemory(Memory, 0, BufferSize, MemoryMapFlags.None);
-            Marshal.Copy(data, 0, bufferDataPointer, data.Length);
-            device.UnmapMemory(Memory);
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             device.DestroyBuffer(NativeBuffer);
             device.FreeMemory(Memory);

@@ -60,9 +60,18 @@ namespace LearningCSharp
 
     public struct UniformMVPMatrices
     {
+        public static UniformMVPMatrices Identity { get; } = new UniformMVPMatrices(Matrix4x4.Identity, Matrix4x4.Identity, Matrix4x4.Identity);
+
         public Matrix4x4 model;
         public Matrix4x4 view;
         public Matrix4x4 projection;
+
+        public UniformMVPMatrices(Matrix4x4 model, Matrix4x4 view, Matrix4x4 projection)
+        {
+            this.model = model;
+            this.view = view;
+            this.projection = projection;
+        }
     }
 
     public unsafe class VulkanRenderer : IDisposable
@@ -75,10 +84,12 @@ namespace LearningCSharp
 
         public Buffer<Vertex> VertexBuffer { get; private set; }
         public Buffer<TriangleIndices> IndexBuffer { get; private set; }
+        public UniformBuffer<UniformMVPMatrices> MVPMatricesBuffer { get; private set; }
 
         public Shader VertexShader { get; private set; }
         public Shader FragmentShader { get; private set; }
         public GraphicsPipeline Pipeline { get; private set; }
+        public VulkanPipelineLayout PipelineLayout { get; private set; }
 
         public VulkanCommandPool CommandPool { get; private set; }
         private CommandBuffer[] commandBuffers;
@@ -90,6 +101,35 @@ namespace LearningCSharp
 
         private TriangleIndices[] triangles;
         private Vertex[] vertices;
+
+        private UniformMVPMatrices _mvpMatrices = UniformMVPMatrices.Identity;
+        public UniformMVPMatrices MVPMatrices
+        {
+            get { return _mvpMatrices; }
+            set
+            {
+                _mvpMatrices = value;
+                MVPMatricesBuffer.Data = new UniformMVPMatrices[] { value };
+            }
+        }
+
+        public Matrix4x4 ModelMatrix
+        {
+            get => MVPMatrices.model;
+            set => MVPMatrices = new UniformMVPMatrices(value, MVPMatrices.view, MVPMatrices.projection);
+        }
+
+        public Matrix4x4 ViewMatrix
+        {
+            get => MVPMatrices.view;
+            set => MVPMatrices = new UniformMVPMatrices(MVPMatrices.model, value, MVPMatrices.projection);
+        }
+
+        public Matrix4x4 ProjectionMatrix
+        {
+            get => MVPMatrices.projection;
+            set => MVPMatrices = new UniformMVPMatrices(MVPMatrices.model, MVPMatrices.view, value);
+        }
 
         private const string VERTEX_SHADER_FILE_PATH = "Shaders/vert.spv";
         private const string FRAGMENT_SHADER_FILE_PATH = "Shaders/frag.spv";
@@ -134,9 +174,12 @@ namespace LearningCSharp
             LogicalDevice = new LogicalDevice(PhysicalDevice, VulkanUtils.DeviceExtensions);
             Surface = new VulkanSurface(mainWindow, Instance, PhysicalDevice);
 
+            MVPMatricesBuffer = new UniformBuffer<UniformMVPMatrices>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, 0, ShaderStageFlags.Vertex, new UniformMVPMatrices[] { MVPMatrices });
+
             VertexShader = Shader.LoadShader(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
             FragmentShader = Shader.LoadShader(FRAGMENT_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Fragment);
-            Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
+            PipelineLayout = new VulkanPipelineLayout(LogicalDevice.NativeDevice, new DescriptorSetLayout[] { MVPMatricesBuffer.NativeDescriptorSetLayout });
+            Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface, PipelineLayout);
 
             Swapchain = new VulkanSwapchain(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
 
@@ -224,7 +267,7 @@ namespace LearningCSharp
 
             VertexShader.ConstructLoad(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
             FragmentShader.ConstructLoad(FRAGMENT_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Fragment);
-            Pipeline.Construct(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface);
+            Pipeline.Construct(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface, PipelineLayout);
             Surface.Construct(mainWindow, Instance, PhysicalDevice);
             Swapchain.Construct(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
 
@@ -291,6 +334,9 @@ namespace LearningCSharp
 
             CommandPool.Dispose();
             Swapchain.Dispose();
+
+            MVPMatricesBuffer.Dispose();
+            PipelineLayout.Dispose();
 
             Pipeline.Dispose();
             FragmentShader.Dispose();

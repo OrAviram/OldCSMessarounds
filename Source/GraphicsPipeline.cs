@@ -7,11 +7,10 @@ namespace LearningCSharp
     public unsafe class GraphicsPipeline : IDisposable
     {
         public Pipeline NativePipeline { get; private set; }
-        public PipelineLayout Layout { get; private set; }
         public VulkanRenderPass RenderPass { get; private set; }
         private Device nativeDevice;
 
-        public void Construct(LogicalDevice device, Shader[] shaders, VulkanSurface surface)
+        public void Construct(LogicalDevice device, Shader[] shaders, VulkanSurface surface, VulkanPipelineLayout layout)
         {
             if (shaders == null)
                 shaders = new Shader[0];
@@ -51,7 +50,6 @@ namespace LearningCSharp
             PipelineRasterizationStateCreateInfo rasterizerCreateInfo = CreateResterizationCreateInfo();
             PipelineMultisampleStateCreateInfo multisamplingCreateInfo = CreateMultisamplingCreateInfo();
             PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = CreateColorBlendCreateInfo(ref colorBlendAttachment);
-            CreateLayout();
 
             RenderPass = new VulkanRenderPass(device, surface);
 
@@ -68,7 +66,7 @@ namespace LearningCSharp
                 DepthStencilState = IntPtr.Zero,
                 ColorBlendState = new IntPtr(&colorBlendStateCreateInfo),
                 DynamicState = IntPtr.Zero,
-                Layout = Layout,
+                Layout = layout.NativeLayout,
                 RenderPass = RenderPass.NativeRenderPass,
                 Subpass = 0,
                 BasePipelineHandle = Pipeline.Null,
@@ -80,9 +78,9 @@ namespace LearningCSharp
                 Marshal.FreeHGlobal(shaderStagesCreateInfos[i].Name);
         }
 
-        public GraphicsPipeline(LogicalDevice device, Shader[] shaders, VulkanSurface surface)
+        public GraphicsPipeline(LogicalDevice device, Shader[] shaders, VulkanSurface surface, VulkanPipelineLayout layout)
         {
-            Construct(device, shaders, surface);
+            Construct(device, shaders, surface, layout);
         }
 
         PipelineViewportStateCreateInfo CreateViewportStateCreateInfo(ref Viewport viewport, ref Rect2D scissor)
@@ -175,19 +173,6 @@ namespace LearningCSharp
             }
         }
 
-        void CreateLayout()
-        {
-            PipelineLayoutCreateInfo createInfo = new PipelineLayoutCreateInfo
-            {
-                StructureType = StructureType.PipelineLayoutCreateInfo,
-                PushConstantRangeCount = 0,
-                PushConstantRanges = IntPtr.Zero,
-                SetLayoutCount = 0,
-                SetLayouts = IntPtr.Zero,
-            };
-            Layout = nativeDevice.CreatePipelineLayout(ref createInfo);
-        }
-
         void SetShaderStageCreateInfos(PipelineShaderStageCreateInfo* createInfos, Shader[] shaders)
         {
             for (int i = 0; i < shaders.Length; i++)
@@ -206,7 +191,6 @@ namespace LearningCSharp
         void IDisposable.Dispose()
         {
             RenderPass.Dispose();
-            nativeDevice.DestroyPipelineLayout(Layout);
             nativeDevice.DestroyPipeline(NativePipeline);
         }
 

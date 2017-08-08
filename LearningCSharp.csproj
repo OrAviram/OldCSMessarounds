@@ -63,6 +63,8 @@
     <Compile Include="Source\Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Source\Buffer.cs" />
+    <Compile Include="Source\UniformBuffer.cs" />
+    <Compile Include="Source\VulkanPipelineLayout.cs" />
     <Compile Include="Source\VulkanRenderPass.cs" />
     <Compile Include="Source\Shader.cs" />
     <Compile Include="Source\VulkanCommandPool.cs" />
