@@ -178,7 +178,7 @@ namespace LearningCSharp
 
             VertexShader = Shader.LoadShader(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
             FragmentShader = Shader.LoadShader(FRAGMENT_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Fragment);
-            PipelineLayout = new VulkanPipelineLayout(LogicalDevice.NativeDevice, new DescriptorSetLayout[] { MVPMatricesBuffer.NativeDescriptorSetLayout });
+            PipelineLayout = new VulkanPipelineLayout(LogicalDevice.NativeDevice, new DescriptorSetLayout[] { MVPMatricesBuffer.DescriptorSetLayout });
             Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface, PipelineLayout);
 
             Swapchain = new VulkanSwapchain(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
@@ -237,6 +237,10 @@ namespace LearningCSharp
                     commandBuffer->BeginRenderPass(ref renderPassBeginInfo, SubpassContents.Inline);
 
                     commandBuffer->BindPipeline(PipelineBindPoint.Graphics, Pipeline.NativePipeline);
+
+                    DescriptorSet[] descriptorSets = new DescriptorSet[] { MVPMatricesBuffer.DescriptorSet };
+                    fixed (DescriptorSet* descriptorSetsPtr = &descriptorSets[0])
+                        commandBuffer->BindDescriptorSets(PipelineBindPoint.Graphics, PipelineLayout.NativeLayout, 0, 1, descriptorSetsPtr, 0, null);
 
                     Buffer[] vertexBuffers = new Buffer[] { VertexBuffer.NativeBuffer };
                     ulong[] offsets = new ulong[] { 0 };

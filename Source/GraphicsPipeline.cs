@@ -14,7 +14,7 @@ namespace LearningCSharp
         {
             if (shaders == null)
                 shaders = new Shader[0];
-
+            
             nativeDevice = device.NativeDevice;
             Viewport viewport = new Viewport
             {

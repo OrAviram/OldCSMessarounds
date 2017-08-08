@@ -12,7 +12,7 @@ namespace LearningCSharp
         public DeviceMemory Memory { get; private set; }
         public uint BufferSize { get; private set; }
 
-        public readonly int typeSizeInBytes = Marshal.SizeOf(typeof(T));
+        public readonly uint typeSizeInBytes = (uint)Marshal.SizeOf(typeof(T));
 
         private T[] _data;
 

@@ -32,7 +32,7 @@ namespace LearningCSharp
             {
                 while (!window.IsClosed)
                 {
-                    renderer.ModelMatrix = Matrix4x4.CreateRotationX((float)Math.PI / 4);
+                    //renderer.ModelMatrix = Matrix4x4.CreateRotationX((float)Math.PI / 4);
 
                     renderer.DrawFrame();
                     while (SDL.SDL_PollEvent(out SDL.SDL_Event e) != 0)

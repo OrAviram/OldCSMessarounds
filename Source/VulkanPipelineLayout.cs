@@ -18,9 +18,9 @@ namespace LearningCSharp
                 {
                     StructureType = StructureType.PipelineLayoutCreateInfo,
                     PushConstantRangeCount = 0,
+                    PushConstantRanges = IntPtr.Zero,
                     SetLayoutCount = (uint)descriptorSetLayouts.Length,
                     SetLayouts = (IntPtr)descriptorSetLayoutsPtr,
-                    PushConstantRanges = IntPtr.Zero,
                 };
                 NativeLayout = device.CreatePipelineLayout(ref createInfo);
             }
