@@ -12,18 +12,22 @@ namespace LearningCSharp
         {
             this.device = device;
 
-            fixed (void* descriptorSetLayoutsPtr = &descriptorSetLayouts[0])
+            PipelineLayoutCreateInfo createInfo = new PipelineLayoutCreateInfo
             {
-                PipelineLayoutCreateInfo createInfo = new PipelineLayoutCreateInfo
+                StructureType = StructureType.PipelineLayoutCreateInfo,
+                PushConstantRangeCount = 0,
+                PushConstantRanges = IntPtr.Zero,
+            };
+
+            if (descriptorSetLayouts != null && descriptorSetLayouts.Length != 0)
+            {
+                fixed(DescriptorSetLayout* descriptorSetLayoutsPtr = &descriptorSetLayouts[0])
                 {
-                    StructureType = StructureType.PipelineLayoutCreateInfo,
-                    PushConstantRangeCount = 0,
-                    PushConstantRanges = IntPtr.Zero,
-                    SetLayoutCount = (uint)descriptorSetLayouts.Length,
-                    SetLayouts = (IntPtr)descriptorSetLayoutsPtr,
-                };
-                NativeLayout = device.CreatePipelineLayout(ref createInfo);
+                    createInfo.SetLayoutCount = (uint)descriptorSetLayouts.Length;
+                    createInfo.SetLayouts = (IntPtr)descriptorSetLayoutsPtr;
+                }
             }
+            NativeLayout = device.CreatePipelineLayout(ref createInfo);
         }
 
         void IDisposable.Dispose()

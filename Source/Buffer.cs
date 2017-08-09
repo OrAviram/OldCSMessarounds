@@ -15,7 +15,6 @@ namespace LearningCSharp
         public readonly uint typeSizeInBytes = (uint)Marshal.SizeOf(typeof(T));
 
         private T[] _data;
-
         public T[] Data
         {
             get { return _data; }
@@ -28,15 +27,34 @@ namespace LearningCSharp
                 for (int bufferDataIndex = 0; bufferDataIndex < value.Length; bufferDataIndex++)
                 {
                     IntPtr currentBytePointer = Marshal.UnsafeAddrOfPinnedArrayElement(value, bufferDataIndex);
-                    for (int floatIndex = 0; floatIndex < typeSizeInBytes; floatIndex++)
+                    for (int byteIndex = 0; byteIndex < typeSizeInBytes; byteIndex++)
                     {
                         data[dataIndex++] = *((byte*)currentBytePointer.ToPointer());
                         currentBytePointer += sizeof(byte);
                     }
                 }
+
+                // This is here just for debugging when I want to see the data as a float array.
+                //float[] floats = new float[data.Length / sizeof(float)];
+                //for (int i = 0; i < floats.Length; i++)
+                //{
+                //    IntPtr fPtr = Marshal.UnsafeAddrOfPinnedArrayElement(floats, i);
+                //    for (int j = 0; j < sizeof(float); j++)
+                //    {
+                //        *((byte*)(fPtr.ToPointer())) = data[i * sizeof(float) + j];
+                //        fPtr += sizeof(byte);
+                //    }
+                //}
+
                 IntPtr bufferDataPointer = device.MapMemory(Memory, 0, BufferSize, MemoryMapFlags.None);
-                Marshal.Copy(data, 0, bufferDataPointer, data.Length);
+                Marshal.Copy(data, 0, bufferDataPointer, (int)BufferSize);
                 device.UnmapMemory(Memory);
+
+                //bufferDataPointer = device.MapMemory(Memory, 0, BufferSize, MemoryMapFlags.None);
+                //Console.WriteLine(((UniformMVPMatrices*)(bufferDataPointer.ToPointer()))->model);
+                //Console.WriteLine(((UniformMVPMatrices*)(bufferDataPointer.ToPointer()))->view);
+                //Console.WriteLine(((UniformMVPMatrices*)(bufferDataPointer.ToPointer()))->projection);
+                //device.UnmapMemory(Memory);
             }
         }
 
@@ -48,7 +66,6 @@ namespace LearningCSharp
 
             BufferSize = (uint)(typeSizeInBytes * bufferData.Length);
             
-
             BufferCreateInfo createInfo = new BufferCreateInfo
             {
                 StructureType = StructureType.BufferCreateInfo,

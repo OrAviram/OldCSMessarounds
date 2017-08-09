@@ -149,7 +149,7 @@ namespace LearningCSharp
                 EngineName = Marshal.StringToHGlobalAnsi(engineName),
                 EngineVersion = engineVersion,
             };
-
+            
             try
             {
                 Initialize(ref appInfo);
@@ -174,6 +174,8 @@ namespace LearningCSharp
             LogicalDevice = new LogicalDevice(PhysicalDevice, VulkanUtils.DeviceExtensions);
             Surface = new VulkanSurface(mainWindow, Instance, PhysicalDevice);
 
+            VertexBuffer = new Buffer<Vertex>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, vertices, BufferUsageFlags.VertexBuffer);
+            IndexBuffer = new Buffer<TriangleIndices>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, triangles, BufferUsageFlags.IndexBuffer);
             MVPMatricesBuffer = new UniformBuffer<UniformMVPMatrices>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, 0, ShaderStageFlags.Vertex, new UniformMVPMatrices[] { MVPMatrices });
 
             VertexShader = Shader.LoadShader(VERTEX_SHADER_FILE_PATH, LogicalDevice, ShaderStageFlags.Vertex);
@@ -182,9 +184,6 @@ namespace LearningCSharp
             Pipeline = new GraphicsPipeline(LogicalDevice, new Shader[] { VertexShader, FragmentShader }, Surface, PipelineLayout);
 
             Swapchain = new VulkanSwapchain(LogicalDevice, Surface, Pipeline.RenderPass.NativeRenderPass);
-
-            VertexBuffer = new Buffer<Vertex>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, vertices, BufferUsageFlags.VertexBuffer);
-            IndexBuffer = new Buffer<TriangleIndices>(PhysicalDevice.NativeDevice, LogicalDevice.NativeDevice, triangles, BufferUsageFlags.IndexBuffer);
 
             CommandPool = new VulkanCommandPool(LogicalDevice.NativeDevice, (uint)PhysicalDevice.QueueFamilyIndices.graphicsFamily);
             commandBuffers = new CommandBuffer[Swapchain.ImageCount];
