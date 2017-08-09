@@ -219,7 +219,7 @@ namespace LearningCSharp
                     {
                         Color = new ClearColorValue
                         {
-                            Float32 = new ClearColorValue.Float32Array { Value0 = 0, Value1 = 0, Value2 = 0, Value3 = 1 },
+                            Float32 = new ClearColorValue.Float32Array { Value0 = .5f, Value1 = .5f, Value2 = .5f, Value3 = 1 },
                         },
                     };
 
