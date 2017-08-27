@@ -244,6 +244,7 @@ namespace LearningCSharp
                 QueueCreateInfos = (IntPtr)queueCreateInfos,
             };
             logicalDevice = physicalDevice.CreateDevice(ref createInfo);
+
             for (int i = 0; i < queueFamilyIndices.Length; i++)
             {
                 uint index = queueFamilyIndices[i];
