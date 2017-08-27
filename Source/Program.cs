@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Runtime.InteropServices;
 using SDL2;
 using SharpVulkan;
@@ -7,12 +8,23 @@ using Version = SharpVulkan.Version;
 
 namespace LearningCSharp
 {
+    struct QueueFamilyIndices
+    {
+        public const uint INVALID_INDEX = uint.MaxValue;
+        public static QueueFamilyIndices Invalid { get; } = new QueueFamilyIndices { graphicsFamily = INVALID_INDEX };
+
+        public uint graphicsFamily;
+        public bool IsValid => graphicsFamily != INVALID_INDEX;
+    }
+
     static unsafe class Program
     {
         delegate void DebugReportCallbackDel(DebugReportFlags flags, DebugReportObjectType objectType, ulong obj, PointerSize location, int code, string layerPrefix, string message, IntPtr userData);
 
         static Instance instance;
         static DebugReportCallback debugReportCallback;
+        static PhysicalDevice physicalDevice;
+        static QueueFamilyIndices queueFamilyIndices;
 
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report" };
         static readonly string[] validationLayers = new string[] { "VK_LAYER_LUNARG_standard_validation" };
@@ -34,6 +46,8 @@ namespace LearningCSharp
                         break;
                     }
                 }
+                // Just so I won't burn the CPU...
+                Thread.Sleep(5);
             }
             Deinitialize();
             SDL.SDL_DestroyWindow(window);
@@ -43,6 +57,7 @@ namespace LearningCSharp
         {
             CreateInstance();
             SetupDebugReport();
+            ChoosePhysicalDevice();
         }
 
         static void Deinitialize()
@@ -76,7 +91,7 @@ namespace LearningCSharp
                 }
             }
             if (availableExtensions.Contains(IntPtr.Zero))
-                Console.WriteLine("Not all extensions supported!");
+                throw new Exception("Not all extensions supported!");
 
             currentExtensionOrLayerIndex = 0;
             LayerProperties[] availableValidationLayerProperties = Vulkan.InstanceLayerProperties;
@@ -91,7 +106,7 @@ namespace LearningCSharp
                 }
             }
             if (availableValidationLayers.Contains(IntPtr.Zero))
-                Console.WriteLine("Not all validation layers supported!");
+                throw new Exception("Not all validation layers supported!");
 
             fixed (void* extensions = &availableExtensions[0])
             fixed (void* layers = &availableValidationLayers[0])
@@ -146,6 +161,25 @@ namespace LearningCSharp
                     break;
                 }
             }
+        }
+
+        static void ChoosePhysicalDevice()
+        {
+            PhysicalDevice[] physicalDevices = instance.PhysicalDevices;
+            for (int physicalDeviceIndex = 0; physicalDeviceIndex < physicalDevices.Length; physicalDeviceIndex++)
+            {
+                physicalDevice = physicalDevices[physicalDeviceIndex];
+                QueueFamilyProperties[] queueFamilies = physicalDevice.QueueFamilyProperties;
+                for (uint queueFamily = 0; queueFamily < queueFamilies.Length; queueFamily++)
+                {
+                    if (queueFamilies[queueFamily].QueueFlags.HasFlag(QueueFlags.Graphics))
+                        queueFamilyIndices.graphicsFamily = queueFamily;
+                }
+                if (queueFamilyIndices.IsValid)
+                    break;
+            }
+            if (!queueFamilyIndices.IsValid)
+                throw new Exception("No suitable physical device found!");
         }
     }
 }
