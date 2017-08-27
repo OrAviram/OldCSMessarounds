@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Threading;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using SDL2;
 using SharpVulkan;
@@ -11,10 +12,14 @@ namespace LearningCSharp
     struct QueueFamilyIndices
     {
         public const uint INVALID_INDEX = uint.MaxValue;
-        public static QueueFamilyIndices Invalid { get; } = new QueueFamilyIndices { graphicsFamily = INVALID_INDEX };
+        public static QueueFamilyIndices Invalid { get; } = new QueueFamilyIndices { graphicsFamily = INVALID_INDEX, presentationFamily = INVALID_INDEX };
 
         public uint graphicsFamily;
-        public bool IsValid => graphicsFamily != INVALID_INDEX;
+        public uint presentationFamily;
+
+        public bool IsValid => graphicsFamily != INVALID_INDEX && presentationFamily != INVALID_INDEX;
+        public bool IsSingleIndex => graphicsFamily == presentationFamily && IsValid;
+        public uint[] ToUniqueArray => IsSingleIndex ? new uint[] { graphicsFamily } : new uint[] { graphicsFamily, presentationFamily };
     }
 
     static unsafe class Program
@@ -26,9 +31,9 @@ namespace LearningCSharp
         static Surface surface;
         static PhysicalDevice physicalDevice;
         static Device logicalDevice;
-        static Queue graphicsQueue;
+        static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
 
-        static QueueFamilyIndices queueFamilyIndices;
+        static QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices.Invalid;
 
         static IntPtr window;
 
@@ -63,15 +68,15 @@ namespace LearningCSharp
         {
             CreateInstance();
             SetupDebugReport();
+            CreateSurface();
             ChoosePhysicalDevice();
             CreateLogicalDevice();
-            CreateSurface();
         }
 
         static void Deinitialize()
         {
-            instance.DestroySurface(surface);
             logicalDevice.Destroy();
+            instance.DestroySurface(surface);
             instance.DestroyDebugReportCallback(debugReportCallback);
             instance.Destroy();
         }
@@ -102,7 +107,7 @@ namespace LearningCSharp
             }
             if (availableExtensions.Contains(IntPtr.Zero))
                 throw new Exception("Not all extensions supported!");
-
+            
             currentExtensionOrLayerIndex = 0;
             LayerProperties[] availableValidationLayerProperties = Vulkan.InstanceLayerProperties;
             IntPtr[] availableValidationLayers = new IntPtr[validationLayers.Length];
@@ -173,52 +178,6 @@ namespace LearningCSharp
             }
         }
 
-        static void ChoosePhysicalDevice()
-        {
-            PhysicalDevice[] physicalDevices = instance.PhysicalDevices;
-            for (int physicalDeviceIndex = 0; physicalDeviceIndex < physicalDevices.Length; physicalDeviceIndex++)
-            {
-                physicalDevice = physicalDevices[physicalDeviceIndex];
-                QueueFamilyProperties[] queueFamilies = physicalDevice.QueueFamilyProperties;
-                for (uint queueFamily = 0; queueFamily < queueFamilies.Length; queueFamily++)
-                {
-                    if (queueFamilies[queueFamily].QueueFlags.HasFlag(QueueFlags.Graphics))
-                        queueFamilyIndices.graphicsFamily = queueFamily;
-                }
-                if (queueFamilyIndices.IsValid)
-                    break;
-            }
-            if (!queueFamilyIndices.IsValid)
-                throw new Exception("No suitable physical device found!");
-        }
-
-        static void CreateLogicalDevice()
-        {
-            uint* queuePriorities = stackalloc uint[1];
-            *queuePriorities = 1;
-            DeviceQueueCreateInfo graphicsQueueCreateInfo = new DeviceQueueCreateInfo
-            {
-                StructureType = StructureType.DeviceQueueCreateInfo,
-                QueueCount = 1,
-                QueueFamilyIndex = queueFamilyIndices.graphicsFamily,
-                QueuePriorities = (IntPtr)queuePriorities,
-            };
-
-            DeviceCreateInfo createInfo = new DeviceCreateInfo
-            {
-                StructureType = StructureType.DeviceCreateInfo,
-                EnabledExtensionCount = 0,
-                EnabledExtensionNames = IntPtr.Zero,
-                EnabledFeatures = IntPtr.Zero,
-                EnabledLayerCount = 0,
-                EnabledLayerNames = IntPtr.Zero,
-                QueueCreateInfoCount = 1,
-                QueueCreateInfos = new IntPtr(&graphicsQueueCreateInfo),
-            };
-            logicalDevice = physicalDevice.CreateDevice(ref createInfo);
-            graphicsQueue = logicalDevice.GetQueue(queueFamilyIndices.graphicsFamily, 0);
-        }
-
         static void CreateSurface()
         {
             SDL.SDL_SysWMinfo windowWMInfo = new SDL.SDL_SysWMinfo();
@@ -230,6 +189,69 @@ namespace LearningCSharp
                 WindowHandle = windowWMInfo.info.win.window,
             };
             surface = instance.CreateWin32Surface(ref createInfo);
+        }
+
+        static void ChoosePhysicalDevice()
+        {
+            PhysicalDevice[] physicalDevices = instance.PhysicalDevices;
+            for (int physicalDeviceIndex = 0; physicalDeviceIndex < physicalDevices.Length; physicalDeviceIndex++)
+            {
+                physicalDevice = physicalDevices[physicalDeviceIndex];
+                QueueFamilyProperties[] queueFamilies = physicalDevice.QueueFamilyProperties;
+                for (uint queueFamilyIndex = 0; queueFamilyIndex < queueFamilies.Length; queueFamilyIndex++)
+                {
+                    QueueFamilyProperties queueFamily = queueFamilies[queueFamilyIndex];
+                    if (physicalDevice.GetSurfaceSupport(queueFamilyIndex, surface))
+                        queueFamilyIndices.presentationFamily = queueFamilyIndex;
+
+                    if (queueFamily.QueueFlags.HasFlag(QueueFlags.Graphics))
+                        queueFamilyIndices.graphicsFamily = queueFamilyIndex;
+                }
+                if (queueFamilyIndices.IsSingleIndex)
+                    break;
+            }
+            if (!queueFamilyIndices.IsValid)
+                throw new Exception("No suitable physical device found!");
+        }
+
+        static void CreateLogicalDevice()
+        {
+            uint* queuePriorities = stackalloc uint[1];
+            *queuePriorities = 1;
+
+            uint[] queueFamilyIndices = Program.queueFamilyIndices.ToUniqueArray;
+            DeviceQueueCreateInfo* queueCreateInfos = stackalloc DeviceQueueCreateInfo[queueFamilyIndices.Length];
+            for (int i = 0; i < queueFamilyIndices.Length; i++)
+            {
+                queueCreateInfos[i] = new DeviceQueueCreateInfo
+                {
+                    StructureType = StructureType.DeviceQueueCreateInfo,
+                    QueueCount = 1,
+                    QueueFamilyIndex = queueFamilyIndices[i],
+                    QueuePriorities = (IntPtr)queuePriorities,
+                };
+            }
+
+            DeviceCreateInfo createInfo = new DeviceCreateInfo
+            {
+                StructureType = StructureType.DeviceCreateInfo,
+                EnabledExtensionCount = 0,
+                EnabledExtensionNames = IntPtr.Zero,
+                EnabledFeatures = IntPtr.Zero,
+                EnabledLayerCount = 0,
+                EnabledLayerNames = IntPtr.Zero,
+                QueueCreateInfoCount = (uint)queueFamilyIndices.Length,
+                QueueCreateInfos = (IntPtr)queueCreateInfos,
+            };
+            logicalDevice = physicalDevice.CreateDevice(ref createInfo);
+            for (int i = 0; i < queueFamilyIndices.Length; i++)
+            {
+                uint index = queueFamilyIndices[i];
+                if (queues.ContainsKey(index))
+                    continue;
+
+                queues.Add(index, logicalDevice.GetQueue(index, 0));
+            }
         }
     }
 }
