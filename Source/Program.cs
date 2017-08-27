@@ -24,6 +24,9 @@ namespace LearningCSharp
         static Instance instance;
         static DebugReportCallback debugReportCallback;
         static PhysicalDevice physicalDevice;
+        static Device logicalDevice;
+        static Queue graphicsQueue;
+
         static QueueFamilyIndices queueFamilyIndices;
 
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report" };
@@ -58,10 +61,12 @@ namespace LearningCSharp
             CreateInstance();
             SetupDebugReport();
             ChoosePhysicalDevice();
+            CreateLogicalDevice();
         }
 
         static void Deinitialize()
         {
+            logicalDevice.Destroy();
             instance.DestroyDebugReportCallback(debugReportCallback);
             instance.Destroy();
         }
@@ -180,6 +185,33 @@ namespace LearningCSharp
             }
             if (!queueFamilyIndices.IsValid)
                 throw new Exception("No suitable physical device found!");
+        }
+
+        static void CreateLogicalDevice()
+        {
+            uint* queuePriorities = stackalloc uint[1];
+            *queuePriorities = 1;
+            DeviceQueueCreateInfo graphicsQueueCreateInfo = new DeviceQueueCreateInfo
+            {
+                StructureType = StructureType.DeviceQueueCreateInfo,
+                QueueCount = 1,
+                QueueFamilyIndex = queueFamilyIndices.graphicsFamily,
+                QueuePriorities = (IntPtr)queuePriorities,
+            };
+
+            DeviceCreateInfo createInfo = new DeviceCreateInfo
+            {
+                StructureType = StructureType.DeviceCreateInfo,
+                EnabledExtensionCount = 0,
+                EnabledExtensionNames = IntPtr.Zero,
+                EnabledFeatures = IntPtr.Zero,
+                EnabledLayerCount = 0,
+                EnabledLayerNames = IntPtr.Zero,
+                QueueCreateInfoCount = 1,
+                QueueCreateInfos = new IntPtr(&graphicsQueueCreateInfo),
+            };
+            logicalDevice = physicalDevice.CreateDevice(ref createInfo);
+            graphicsQueue = logicalDevice.GetQueue(queueFamilyIndices.graphicsFamily, 0);
         }
     }
 }
