@@ -23,18 +23,21 @@ namespace LearningCSharp
 
         static Instance instance;
         static DebugReportCallback debugReportCallback;
+        static Surface surface;
         static PhysicalDevice physicalDevice;
         static Device logicalDevice;
         static Queue graphicsQueue;
 
         static QueueFamilyIndices queueFamilyIndices;
 
-        static readonly string[] extensions = new string[] { "VK_EXT_debug_report" };
+        static IntPtr window;
+
+        static readonly string[] extensions = new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
         static readonly string[] validationLayers = new string[] { "VK_LAYER_LUNARG_standard_validation" };
 
         static void Main()
         {
-            IntPtr window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1000, 500, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
+            window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1000, 500, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
             bool running = true;
 
             Initialize();
@@ -62,10 +65,12 @@ namespace LearningCSharp
             SetupDebugReport();
             ChoosePhysicalDevice();
             CreateLogicalDevice();
+            CreateSurface();
         }
 
         static void Deinitialize()
         {
+            instance.DestroySurface(surface);
             logicalDevice.Destroy();
             instance.DestroyDebugReportCallback(debugReportCallback);
             instance.Destroy();
@@ -212,6 +217,19 @@ namespace LearningCSharp
             };
             logicalDevice = physicalDevice.CreateDevice(ref createInfo);
             graphicsQueue = logicalDevice.GetQueue(queueFamilyIndices.graphicsFamily, 0);
+        }
+
+        static void CreateSurface()
+        {
+            SDL.SDL_SysWMinfo windowWMInfo = new SDL.SDL_SysWMinfo();
+            SDL.SDL_GetWindowWMInfo(window, ref windowWMInfo);
+            Win32SurfaceCreateInfo createInfo = new Win32SurfaceCreateInfo
+            {
+                StructureType = StructureType.Win32SurfaceCreateInfo,
+                InstanceHandle = Marshal.GetHINSTANCE(typeof(Program).Module),
+                WindowHandle = windowWMInfo.info.win.window,
+            };
+            surface = instance.CreateWin32Surface(ref createInfo);
         }
     }
 }
