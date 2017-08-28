@@ -23,7 +23,7 @@ namespace LearningCSharp
         public uint[] ToUniqueArray => IsSingleIndex ? new uint[] { graphicsFamily } : new uint[] { graphicsFamily, presentationFamily };
     }
 
-    struct SwapchainInfo
+    struct SwapChainInfo
     {
         public SurfaceFormat surfaceFormat;
         public PresentMode presentMode;
@@ -59,7 +59,7 @@ namespace LearningCSharp
         static Surface surface;
         static PhysicalDevice physicalDevice;
         static Device logicalDevice;
-        static Swapchain swapchain;
+        static Swapchain swapChain;
         static RenderPass renderPass;
 
         static Shader vertexShader;
@@ -68,11 +68,12 @@ namespace LearningCSharp
         static PipelineLayout pipelineLayout;
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
-        static Image[] swapchainImages;
-        static ImageView[] swapchainImageViews;
+        static Image[] swapChainImages;
+        static ImageView[] swapChainImageViews;
+        static Framebuffer[] frameBuffers;
 
         static QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices.Invalid;
-        static SwapchainInfo swapchainInfo;
+        static SwapChainInfo swapChainInfo;
 
         static IntPtr window;
 
@@ -82,11 +83,11 @@ namespace LearningCSharp
 
         static void Main()
         {
+            SDL.SDL_Init(SDL.SDL_INIT_VIDEO);
             window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1000, 500, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
-            bool running = true;
-
             Initialize();
 
+            bool running = true;
             while (running)
             {
                 while (SDL.SDL_PollEvent(out SDL.SDL_Event e) != 0)
@@ -102,6 +103,10 @@ namespace LearningCSharp
             }
             Deinitialize();
             SDL.SDL_DestroyWindow(window);
+            SDL.SDL_Quit();
+
+            // So I can see all the final logs.
+            Console.ReadKey(true);
         }
 
         static void Initialize()
@@ -112,27 +117,32 @@ namespace LearningCSharp
             ChoosePhysicalDevice();
             CreateLogicalDevice();
 
-            CreateSwapchain();
+            CreateSwapChain();
             CreateRenderPass();
 
             vertexShader = LoadShader("Shaders/vert.spv", ShaderStageFlags.Vertex);
             fragmentShader = LoadShader("Shaders/frag.spv", ShaderStageFlags.Fragment);
             CreatePipelineLayout();
             CreateGraphicsPipeline();
+
+            CreateFrameBuffers();
         }
 
         static void Deinitialize()
         {
+            foreach (Framebuffer frameBuffer in frameBuffers)
+                logicalDevice.DestroyFramebuffer(frameBuffer);
+
             logicalDevice.DestroyPipelineLayout(pipelineLayout);
             logicalDevice.DestroyPipeline(graphicsPipeline);
             fragmentShader.Destroy(logicalDevice);
             vertexShader.Destroy(logicalDevice);
 
             logicalDevice.DestroyRenderPass(renderPass);
-            for (int i = 0; i < swapchainImageViews.Length; i++)
-                logicalDevice.DestroyImageView(swapchainImageViews[i]);
+            for (int i = 0; i < swapChainImageViews.Length; i++)
+                logicalDevice.DestroyImageView(swapChainImageViews[i]);
 
-            logicalDevice.DestroySwapchain(swapchain);
+            logicalDevice.DestroySwapchain(swapChain);
 
             logicalDevice.Destroy();
             instance.DestroySurface(surface);
@@ -186,25 +196,25 @@ namespace LearningCSharp
             {
                 switch (flags)
                 {
-                case DebugReportFlags.Error:
-                    Logger.Log("VULKAN ERROR: " + message, ConsoleColor.Red);
-                    break;
-                                
-                case DebugReportFlags.Warning:
-                    Logger.Log("VULKAN WARNING: " + message, ConsoleColor.Yellow);
-                    break;
-                               
-                case DebugReportFlags.PerformanceWarning:
-                    Logger.Log("VULKAN PERFORMANCE WARNING: " + message, ConsoleColor.Green);
-                    break;
-                               
-                case DebugReportFlags.Information:
-                    Logger.Log("VULKAN INFORMATION: " + message, ConsoleColor.Cyan);
-                    break;
-                               
-                case DebugReportFlags.Debug:
-                    Logger.Log("VULKAN DEBUG: " + message, ConsoleColor.Gray);
-                    break;
+                    case DebugReportFlags.Error:
+                        Logger.Log("VULKAN ERROR: " + message, ConsoleColor.Red);
+                        break;
+
+                    case DebugReportFlags.Warning:
+                        Logger.Log("VULKAN WARNING: " + message, ConsoleColor.Yellow);
+                        break;
+
+                    case DebugReportFlags.PerformanceWarning:
+                        Logger.Log("VULKAN PERFORMANCE WARNING: " + message, ConsoleColor.Green);
+                        break;
+
+                    case DebugReportFlags.Information:
+                        Logger.Log("VULKAN INFORMATION: " + message, ConsoleColor.Cyan);
+                        break;
+
+                    case DebugReportFlags.Debug:
+                        Logger.Log("VULKAN DEBUG: " + message, ConsoleColor.Gray);
+                        break;
                 }
             }
         }
@@ -298,32 +308,32 @@ namespace LearningCSharp
             }
         }
 
-        static void CreateSwapchain()
+        static void CreateSwapChain()
         {
-            physicalDevice.GetSurfaceCapabilities(surface, out swapchainInfo.surfaceCapabilities);
-            swapchainInfo.surfaceFormat = ChooseSurfaceFormat(physicalDevice.GetSurfaceFormats(surface));
-            swapchainInfo.presentMode = ChoosePresentMode(physicalDevice.GetSurfacePresentModes(surface));
-            swapchainInfo.imageExtent = ChooseImageExtent(swapchainInfo.surfaceCapabilities);
+            physicalDevice.GetSurfaceCapabilities(surface, out swapChainInfo.surfaceCapabilities);
+            swapChainInfo.surfaceFormat = ChooseSurfaceFormat(physicalDevice.GetSurfaceFormats(surface));
+            swapChainInfo.presentMode = ChoosePresentMode(physicalDevice.GetSurfacePresentModes(surface));
+            swapChainInfo.imageExtent = ChooseImageExtent(swapChainInfo.surfaceCapabilities);
 
-            swapchainInfo.imageCount = swapchainInfo.surfaceCapabilities.MinImageCount + 1;
-            if (swapchainInfo.surfaceCapabilities.MaxImageCount > 0 && swapchainInfo.imageCount > swapchainInfo.surfaceCapabilities.MaxImageCount)
-                swapchainInfo.imageCount = swapchainInfo.surfaceCapabilities.MaxImageCount;
+            swapChainInfo.imageCount = swapChainInfo.surfaceCapabilities.MinImageCount + 1;
+            if (swapChainInfo.surfaceCapabilities.MaxImageCount > 0 && swapChainInfo.imageCount > swapChainInfo.surfaceCapabilities.MaxImageCount)
+                swapChainInfo.imageCount = swapChainInfo.surfaceCapabilities.MaxImageCount;
 
             SwapchainCreateInfo createInfo = new SwapchainCreateInfo
             {
                 StructureType = StructureType.SwapchainCreateInfo,
                 Surface = surface,
-                MinImageCount = swapchainInfo.imageCount,
-                ImageFormat = swapchainInfo.surfaceFormat.Format,
-                ImageColorSpace = swapchainInfo.surfaceFormat.ColorSpace,
-                ImageExtent = swapchainInfo.imageExtent,
+                MinImageCount = swapChainInfo.imageCount,
+                ImageFormat = swapChainInfo.surfaceFormat.Format,
+                ImageColorSpace = swapChainInfo.surfaceFormat.ColorSpace,
+                ImageExtent = swapChainInfo.imageExtent,
                 ImageArrayLayers = 1,
                 ImageUsage = ImageUsageFlags.ColorAttachment,
-                PreTransform = swapchainInfo.surfaceCapabilities.CurrentTransform,
+                PreTransform = swapChainInfo.surfaceCapabilities.CurrentTransform,
                 CompositeAlpha = CompositeAlphaFlags.Opaque,
                 OldSwapchain = Swapchain.Null,
                 Clipped = true,
-                PresentMode = swapchainInfo.presentMode,
+                PresentMode = swapChainInfo.presentMode,
             };
 
             if (!queueFamilyIndices.IsSingleIndex)
@@ -338,22 +348,22 @@ namespace LearningCSharp
                 createInfo.QueueFamilyIndexCount = 0;
                 createInfo.QueueFamilyIndices = IntPtr.Zero;
             }
-            swapchain = logicalDevice.CreateSwapchain(ref createInfo);
-            swapchainImages = logicalDevice.GetSwapchainImages(swapchain);
+            swapChain = logicalDevice.CreateSwapchain(ref createInfo);
+            swapChainImages = logicalDevice.GetSwapchainImages(swapChain);
 
-            swapchainImageViews = new ImageView[swapchainImages.Length];
-            for (int i = 0; i < swapchainImageViews.Length; i++)
+            swapChainImageViews = new ImageView[swapChainImages.Length];
+            for (int i = 0; i < swapChainImageViews.Length; i++)
             {
                 ImageViewCreateInfo imageViewCreateInfo = new ImageViewCreateInfo
                 {
                     StructureType = StructureType.ImageViewCreateInfo,
                     Components = new ComponentMapping(ComponentSwizzle.Identity),
-                    Format = swapchainInfo.surfaceFormat.Format,
-                    Image = swapchainImages[i],
+                    Format = swapChainInfo.surfaceFormat.Format,
+                    Image = swapChainImages[i],
                     SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.Color, 0, 1, 0, 1),
                     ViewType = ImageViewType.Image2D,
                 };
-                swapchainImageViews[i] = logicalDevice.CreateImageView(ref imageViewCreateInfo);
+                swapChainImageViews[i] = logicalDevice.CreateImageView(ref imageViewCreateInfo);
             }
         }
 
@@ -361,7 +371,7 @@ namespace LearningCSharp
         {
             AttachmentDescription colorAttachment = new AttachmentDescription
             {
-                Format = swapchainInfo.surfaceFormat.Format,
+                Format = swapChainInfo.surfaceFormat.Format,
                 Samples = SampleCountFlags.Sample1,
                 LoadOperation = AttachmentLoadOperation.Clear,
                 StoreOperation = AttachmentStoreOperation.Store,
@@ -497,7 +507,7 @@ namespace LearningCSharp
             };
             Rect2D scissor = new Rect2D
             {
-                Extent = swapchainInfo.imageExtent,
+                Extent = swapChainInfo.imageExtent,
                 Offset = new Offset2D(0, 0),
             };
             PipelineViewportStateCreateInfo viewportState = new PipelineViewportStateCreateInfo
@@ -537,6 +547,25 @@ namespace LearningCSharp
                 TessellationState = IntPtr.Zero,
             };
             graphicsPipeline = logicalDevice.CreateGraphicsPipelines(PipelineCache.Null, 1, &createInfo);
+        }
+
+        static void CreateFrameBuffers()
+        {
+            frameBuffers = new Framebuffer[swapChainImages.Length];
+            for (int i = 0; i < frameBuffers.Length; i++)
+            {
+                FramebufferCreateInfo createInfo = new FramebufferCreateInfo
+                {
+                    StructureType = StructureType.FramebufferCreateInfo,
+                    RenderPass = renderPass,
+                    AttachmentCount = 1,
+                    Attachments = Marshal.UnsafeAddrOfPinnedArrayElement(swapChainImageViews, i),
+                    Width = swapChainInfo.imageExtent.Width,
+                    Height = swapChainInfo.imageExtent.Height,
+                    Layers = 1,
+                };
+                frameBuffers[i] = logicalDevice.CreateFramebuffer(ref createInfo);
+            }
         }
 
         static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
