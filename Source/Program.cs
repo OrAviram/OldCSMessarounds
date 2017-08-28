@@ -32,6 +32,24 @@ namespace LearningCSharp
         public uint imageCount;
     }
 
+    unsafe struct Shader
+    {
+        public ShaderModule module;
+        public PipelineShaderStageCreateInfo pipelineStage;
+        private IntPtr unmanagedEntryPointName;
+
+        public Shader(IntPtr unmanagedEntryPointName) : this()
+        {
+            this.unmanagedEntryPointName = unmanagedEntryPointName;
+        }
+
+        public void Destroy(Device device)
+        {
+            device.DestroyShaderModule(module);
+            Marshal.FreeHGlobal(unmanagedEntryPointName);
+        }
+    }
+
     static unsafe class Program
     {
         delegate void DebugReportCallbackDel(DebugReportFlags flags, DebugReportObjectType objectType, ulong obj, PointerSize location, int code, string layerPrefix, string message, IntPtr userData);
@@ -43,8 +61,10 @@ namespace LearningCSharp
         static Device logicalDevice;
         static Swapchain swapchain;
 
-        static ShaderModule vertexShader;
-        static ShaderModule fragmentShader;
+        static Shader vertexShader;
+        static Shader fragmentShader;
+        static Pipeline graphicsPipeline;
+        static PipelineLayout pipelineLayout;
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
         static Image[] swapchainImages;
@@ -92,14 +112,18 @@ namespace LearningCSharp
             CreateLogicalDevice();
 
             CreateSwapchain();
-            vertexShader = LoadShader("Shaders/vert.spv");
-            fragmentShader = LoadShader("Shaders/frag.spv");
+            vertexShader = LoadShader("Shaders/vert.spv", ShaderStageFlags.Vertex);
+            fragmentShader = LoadShader("Shaders/frag.spv", ShaderStageFlags.Fragment);
+            CreatePipelineLayout();
+            CreateGraphicsPipeline();
         }
 
         static void Deinitialize()
         {
-            logicalDevice.DestroyShaderModule(vertexShader);
-            logicalDevice.DestroyShaderModule(fragmentShader);
+            logicalDevice.DestroyPipelineLayout(pipelineLayout);
+            logicalDevice.DestroyPipeline(graphicsPipeline);
+            vertexShader.Destroy(logicalDevice);
+            fragmentShader.Destroy(logicalDevice);
 
             for (int i = 0; i < swapchainImageViews.Length; i++)
                 logicalDevice.DestroyImageView(swapchainImageViews[i]);
@@ -329,6 +353,148 @@ namespace LearningCSharp
             }
         }
 
+        static void CreatePipelineLayout()
+        {
+            PipelineLayoutCreateInfo createInfo = new PipelineLayoutCreateInfo
+            {
+                StructureType = StructureType.PipelineLayoutCreateInfo,
+                PushConstantRangeCount = 0,
+                PushConstantRanges = IntPtr.Zero,
+                SetLayoutCount = 0,
+                SetLayouts = IntPtr.Zero,
+            };
+            pipelineLayout = logicalDevice.CreatePipelineLayout(ref createInfo);
+        }
+
+        static void CreateGraphicsPipeline()
+        {
+            PipelineColorBlendAttachmentState colorAttachment = new PipelineColorBlendAttachmentState
+            {
+                ColorWriteMask = ColorComponentFlags.R | ColorComponentFlags.G | ColorComponentFlags.B | ColorComponentFlags.A,
+                BlendEnable = false,
+                SourceColorBlendFactor = BlendFactor.One,
+                DestinationColorBlendFactor = BlendFactor.Zero,
+                ColorBlendOperation = BlendOperation.Add,
+                SourceAlphaBlendFactor = BlendFactor.One,
+                DestinationAlphaBlendFactor = BlendFactor.Zero,
+                AlphaBlendOperation = BlendOperation.Add,
+            };
+            PipelineColorBlendStateCreateInfo colorBlendStage = new PipelineColorBlendStateCreateInfo
+            {
+                StructureType = StructureType.PipelineColorBlendStateCreateInfo,
+                LogicOperationEnable = false,
+                LogicOperation = LogicOperation.Copy,
+                AttachmentCount = 1,
+                Attachments = new IntPtr(&colorAttachment),
+                BlendConstants = new PipelineColorBlendStateCreateInfo.BlendConstantsArray(),
+            };
+
+            DynamicState* dynamicStates = stackalloc DynamicState[2];
+            dynamicStates[0] = DynamicState.Viewport;
+            dynamicStates[1] = DynamicState.LineWidth;
+            PipelineDynamicStateCreateInfo dynamicState = new PipelineDynamicStateCreateInfo
+            {
+                StructureType = StructureType.PipelineDynamicStateCreateInfo,
+                DynamicStateCount = 2,
+                DynamicStates = (IntPtr)dynamicStates,
+            };
+
+            PipelineInputAssemblyStateCreateInfo inputAssemblyState = new PipelineInputAssemblyStateCreateInfo
+            {
+                StructureType = StructureType.PipelineInputAssemblyStateCreateInfo,
+                Topology = PrimitiveTopology.TriangleList,
+                PrimitiveRestartEnable = false,
+            };
+
+            PipelineMultisampleStateCreateInfo multisamplingState = new PipelineMultisampleStateCreateInfo
+            {
+                StructureType = StructureType.PipelineMultisampleStateCreateInfo,
+                AlphaToCoverageEnable = false,
+                AlphaToOneEnable = false,
+                MinSampleShading = 1,
+                RasterizationSamples = SampleCountFlags.Sample1,
+                SampleMask = IntPtr.Zero,
+                SampleShadingEnable = false,
+            };
+
+            PipelineRasterizationStateCreateInfo rasterizationState = new PipelineRasterizationStateCreateInfo
+            {
+                StructureType = StructureType.PipelineRasterizationStateCreateInfo,
+                CullMode = CullModeFlags.Back,
+                FrontFace = FrontFace.Clockwise,
+                DepthBiasEnable = false,
+                DepthBiasConstantFactor = 0,
+                DepthBiasClamp = 0,
+                DepthBiasSlopeFactor = 0,
+                DepthClampEnable = false,
+                LineWidth = 1,
+                PolygonMode = PolygonMode.Fill,
+                RasterizerDiscardEnable = false,
+            };
+
+            PipelineVertexInputStateCreateInfo vertexInputState = new PipelineVertexInputStateCreateInfo
+            {
+                StructureType = StructureType.PipelineVertexInputStateCreateInfo,
+                VertexAttributeDescriptionCount = 0,
+                VertexAttributeDescriptions = IntPtr.Zero,
+                VertexBindingDescriptionCount = 0,
+                VertexBindingDescriptions = IntPtr.Zero,
+            };
+
+            SDL.SDL_GetWindowSize(window, out int width, out int height);
+            Viewport viewport = new Viewport
+            {
+                Width = width,
+                Height = height,
+                MaxDepth = 1,
+                MinDepth = 0,
+                X = 0,
+                Y = 0,
+            };
+            Rect2D scissor = new Rect2D
+            {
+                Extent = swapchainInfo.imageExtent,
+                Offset = new Offset2D(0, 0),
+            };
+            PipelineViewportStateCreateInfo viewportState = new PipelineViewportStateCreateInfo
+            {
+                StructureType = StructureType.PipelineViewportStateCreateInfo,
+                ScissorCount = 1,
+                Scissors = new IntPtr(&scissor),
+                ViewportCount = 1,
+                Viewports = new IntPtr(&viewport),
+            };
+
+            PipelineShaderStageCreateInfo* shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
+            shaderStages[0] = vertexShader.pipelineStage;
+            shaderStages[1] = fragmentShader.pipelineStage;
+
+            GraphicsPipelineCreateInfo createInfo = new GraphicsPipelineCreateInfo
+            {
+                StructureType = StructureType.GraphicsPipelineCreateInfo,
+
+                Layout = pipelineLayout,
+                BasePipelineIndex = 0,
+                BasePipelineHandle = Pipeline.Null,
+                RenderPass = RenderPass.Null,
+                Subpass = 0,
+
+                ColorBlendState = new IntPtr(&colorBlendStage),
+                DepthStencilState = IntPtr.Zero,
+                DynamicState = new IntPtr(&dynamicState),
+                InputAssemblyState = new IntPtr(&inputAssemblyState),
+                MultisampleState = new IntPtr(&multisamplingState),
+                RasterizationState = new IntPtr(&rasterizationState),
+                VertexInputState = new IntPtr(&vertexInputState),
+                ViewportState = new IntPtr(&viewportState),
+
+                StageCount = 2,
+                Stages = (IntPtr)shaderStages,
+                TessellationState = IntPtr.Zero,
+            };
+            graphicsPipeline = logicalDevice.CreateGraphicsPipelines(PipelineCache.Null, 1, &createInfo);
+        }
+
         static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
         {
             if (availableFormats.Length == 1 && availableFormats[0].Format == Format.Undefined)
@@ -370,7 +536,7 @@ namespace LearningCSharp
             return actualExtent;
         }
 
-        static ShaderModule LoadShader(string filePath)
+        static Shader LoadShader(string filePath, ShaderStageFlags stage)
         {
             byte[] shader = File.ReadAllBytes(filePath);
             ShaderModuleCreateInfo createInfo = new ShaderModuleCreateInfo
@@ -379,7 +545,17 @@ namespace LearningCSharp
                 Code = Marshal.UnsafeAddrOfPinnedArrayElement(shader, 0),
                 CodeSize = shader.Length,
             };
-            return logicalDevice.CreateShaderModule(ref createInfo);
+            ShaderModule module = logicalDevice.CreateShaderModule(ref createInfo);
+
+            IntPtr unmanagedEntryPointName = Marshal.StringToHGlobalAnsi("main");
+            PipelineShaderStageCreateInfo pipelineStage = new PipelineShaderStageCreateInfo
+            {
+                StructureType = StructureType.PipelineShaderStageCreateInfo,
+                Module = module,
+                Name = unmanagedEntryPointName,
+                Stage = stage,
+            };
+            return new Shader(unmanagedEntryPointName) { module = module, pipelineStage = pipelineStage };
         }
 
         static IntPtr[] GetNamePointers<T>(string[] desiredNames, T[] availablePropertiesArray, string supportedObjectsNameOnFail)
