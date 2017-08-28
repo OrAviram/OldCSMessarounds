@@ -39,6 +39,7 @@ namespace LearningCSharp
 
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
         static readonly string[] validationLayers = new string[] { "VK_LAYER_LUNARG_standard_validation" };
+        static readonly string[] deviceExtensions = new string[] { "VK_KHR_swapchain" };
 
         static void Main()
         {
@@ -204,18 +205,30 @@ namespace LearningCSharp
                 };
             }
 
-            DeviceCreateInfo createInfo = new DeviceCreateInfo
+            IntPtr[] extensionNames = GetNamePointers(deviceExtensions, physicalDevice.GetDeviceExtensionProperties(), "device extensions");
+            fixed (IntPtr* extensionNamesPtr = &extensionNames[0])
             {
-                StructureType = StructureType.DeviceCreateInfo,
-                EnabledExtensionCount = 0,
-                EnabledExtensionNames = IntPtr.Zero,
-                EnabledFeatures = IntPtr.Zero,
-                EnabledLayerCount = 0,
-                EnabledLayerNames = IntPtr.Zero,
-                QueueCreateInfoCount = (uint)queueFamilyIndices.Length,
-                QueueCreateInfos = (IntPtr)queueCreateInfos,
-            };
-            logicalDevice = physicalDevice.CreateDevice(ref createInfo);
+                IntPtr extensionNamesIntPtr = IntPtr.Zero;
+                uint extensionsCount = 0;
+                if (*extensionNamesPtr != IntPtr.Zero)
+                {
+                    extensionsCount = (uint)deviceExtensions.Length;
+                    extensionNamesIntPtr = (IntPtr)extensionNamesPtr;
+                }
+
+                DeviceCreateInfo createInfo = new DeviceCreateInfo
+                {
+                    StructureType = StructureType.DeviceCreateInfo,
+                    EnabledExtensionCount = extensionsCount,
+                    EnabledExtensionNames = extensionNamesIntPtr,
+                    EnabledFeatures = IntPtr.Zero,
+                    EnabledLayerCount = 0,
+                    EnabledLayerNames = IntPtr.Zero,
+                    QueueCreateInfoCount = (uint)queueFamilyIndices.Length,
+                    QueueCreateInfos = (IntPtr)queueCreateInfos,
+                };
+                logicalDevice = physicalDevice.CreateDevice(ref createInfo);
+            }
 
             for (int i = 0; i < queueFamilyIndices.Length; i++)
             {
@@ -240,6 +253,10 @@ namespace LearningCSharp
             }
             if (pointers.Contains(IntPtr.Zero))
                 throw new Exception("Not all " + supportedObjectsNameOnFail + " supported!");
+
+            if (pointers.Length == 0)
+                pointers = new IntPtr[] { IntPtr.Zero };
+
             return pointers;
         }
     }
