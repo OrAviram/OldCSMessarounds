@@ -24,7 +24,7 @@ namespace LearningCSharp
         public uint[] ToUniqueArray => IsSingleIndex ? new uint[] { graphicsFamily } : new uint[] { graphicsFamily, presentationFamily };
     }
 
-    struct SwapChainInfo
+    struct SwapchainInfo
     {
         public SurfaceFormat surfaceFormat;
         public PresentMode presentMode;
@@ -60,7 +60,7 @@ namespace LearningCSharp
         static Surface surface;
         static PhysicalDevice physicalDevice;
         static Device logicalDevice;
-        static Swapchain swapChain;
+        static Swapchain swapchain;
         static RenderPass renderPass;
         static CommandPool commandPool;
 
@@ -73,13 +73,13 @@ namespace LearningCSharp
         static Semaphore renderFinishedSemaphore;
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
-        static Image[] swapChainImages;
-        static ImageView[] swapChainImageViews;
+        static Image[] swapchainImages;
+        static ImageView[] swapchainImageViews;
         static Framebuffer[] frameBuffers;
         static CommandBuffer[] commandBuffers;
 
         static QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices.Invalid;
-        static SwapChainInfo swapChainInfo;
+        static SwapchainInfo swapchainInfo;
 
         static Viewport viewport;
 
@@ -92,18 +92,8 @@ namespace LearningCSharp
         static void Main()
         {
             SDL.SDL_Init(SDL.SDL_INIT_VIDEO);
-            window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1000, 500, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
-
-            SDL.SDL_GetWindowSize(window, out int width, out int height);
-            viewport = new Viewport
-            {
-                Width = width,
-                Height = height,
-                MaxDepth = 1,
-                MinDepth = 0,
-                X = 0,
-                Y = 0,
-            };
+            window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1000, 500, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN | SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
+            CreateViewport();
             InitVulkan();
 
             bool running = true;
@@ -116,11 +106,13 @@ namespace LearningCSharp
                         running = false;
                         break;
                     }
+                    else if (e.window.windowEvent == SDL.SDL_WindowEventID.SDL_WINDOWEVENT_RESIZED)
+                    {
+                        CreateViewport();
+                        RecreateSwapChain();
+                    }
                 }
                 DrawFrame();
-
-                // Just so I won't burn the CPU...
-                //Thread.Sleep(5);
             }
             DeinitVulkan();
             SDL.SDL_DestroyWindow(window);
@@ -128,6 +120,51 @@ namespace LearningCSharp
 
             // So I can see all the final logs.
             Console.ReadKey(true);
+        }
+
+        static void CreateViewport()
+        {
+            SDL.SDL_GetWindowSize(window, out int width, out int height);
+            viewport = new Viewport
+            {
+                Width = width,
+                Height = height,
+                MaxDepth = 1,
+                MinDepth = 0,
+                X = 0,
+                Y = 0,
+            };
+        }
+
+        static void CleanUpSwapchain()
+        {
+            foreach (Framebuffer frameBuffer in frameBuffers)
+                logicalDevice.DestroyFramebuffer(frameBuffer);
+
+            fixed (CommandBuffer* commandBuffersPtr = &commandBuffers[0])
+                logicalDevice.FreeCommandBuffers(commandPool, (uint)commandBuffers.Length, commandBuffersPtr);
+
+            logicalDevice.DestroyPipeline(graphicsPipeline);
+            logicalDevice.DestroyPipelineLayout(pipelineLayout);
+            logicalDevice.DestroyRenderPass(renderPass);
+
+            for (int i = 0; i < swapchainImageViews.Length; i++)
+                logicalDevice.DestroyImageView(swapchainImageViews[i]);
+
+            logicalDevice.DestroySwapchain(swapchain);
+        }
+
+        static void RecreateSwapChain()
+        {
+            logicalDevice.WaitIdle();
+            CleanUpSwapchain();
+
+            CreateSwapchain();
+            CreateRenderPass();
+            CreatePipelineLayout();
+            CreateGraphicsPipeline();
+            CreateFrameBuffers();
+            AllocateCommandBuffers();
         }
 
         static void InitVulkan()
@@ -138,7 +175,7 @@ namespace LearningCSharp
             ChoosePhysicalDevice();
             CreateLogicalDevice();
 
-            CreateSwapChain();
+            CreateSwapchain();
             CreateRenderPass();
 
             vertexShader = LoadShader("Shaders/vert.spv", ShaderStageFlags.Vertex);
@@ -157,7 +194,7 @@ namespace LearningCSharp
         {
             Queue graphicsQueue = queues[queueFamilyIndices.graphicsFamily];
             graphicsQueue.WaitIdle();
-            uint imageIndex = logicalDevice.AcquireNextImage(swapChain, ulong.MaxValue, imageAvailableSemaphore, Fence.Null);
+            uint imageIndex = logicalDevice.AcquireNextImage(swapchain, ulong.MaxValue, imageAvailableSemaphore, Fence.Null);
 
             Semaphore* imageAvailableSemaphorePointer = stackalloc Semaphore[1];
             *imageAvailableSemaphorePointer = imageAvailableSemaphore;
@@ -166,7 +203,7 @@ namespace LearningCSharp
             *renderFinishedSemaphorePointer = renderFinishedSemaphore;
 
             Swapchain* swapchainPointer = stackalloc Swapchain[1];
-            *swapchainPointer = swapChain;
+            *swapchainPointer = swapchain;
 
             PipelineStageFlags* pipelineStageFlags = stackalloc PipelineStageFlags[1];
             *pipelineStageFlags = PipelineStageFlags.ColorAttachmentOutput;
@@ -199,25 +236,16 @@ namespace LearningCSharp
 
         static void DeinitVulkan()
         {
-            queues[queueFamilyIndices.graphicsFamily].WaitIdle();
+            logicalDevice.WaitIdle();
+            CleanUpSwapchain();
 
             logicalDevice.DestroySemaphore(imageAvailableSemaphore);
             logicalDevice.DestroySemaphore(renderFinishedSemaphore);
 
             logicalDevice.DestroyCommandPool(commandPool);
-            foreach (Framebuffer frameBuffer in frameBuffers)
-                logicalDevice.DestroyFramebuffer(frameBuffer);
-
-            logicalDevice.DestroyPipelineLayout(pipelineLayout);
-            logicalDevice.DestroyPipeline(graphicsPipeline);
+            
             fragmentShader.Destroy(logicalDevice);
             vertexShader.Destroy(logicalDevice);
-
-            logicalDevice.DestroyRenderPass(renderPass);
-            for (int i = 0; i < swapChainImageViews.Length; i++)
-                logicalDevice.DestroyImageView(swapChainImageViews[i]);
-
-            logicalDevice.DestroySwapchain(swapChain);
 
             logicalDevice.Destroy();
             instance.DestroySurface(surface);
@@ -383,32 +411,32 @@ namespace LearningCSharp
             }
         }
 
-        static void CreateSwapChain()
+        static void CreateSwapchain()
         {
-            physicalDevice.GetSurfaceCapabilities(surface, out swapChainInfo.surfaceCapabilities);
-            swapChainInfo.surfaceFormat = ChooseSurfaceFormat(physicalDevice.GetSurfaceFormats(surface));
-            swapChainInfo.presentMode = ChoosePresentMode(physicalDevice.GetSurfacePresentModes(surface));
-            swapChainInfo.imageExtent = ChooseImageExtent(swapChainInfo.surfaceCapabilities);
+            physicalDevice.GetSurfaceCapabilities(surface, out swapchainInfo.surfaceCapabilities);
+            swapchainInfo.surfaceFormat = ChooseSurfaceFormat(physicalDevice.GetSurfaceFormats(surface));
+            swapchainInfo.presentMode = ChoosePresentMode(physicalDevice.GetSurfacePresentModes(surface));
+            swapchainInfo.imageExtent = ChooseImageExtent(swapchainInfo.surfaceCapabilities);
 
-            swapChainInfo.imageCount = swapChainInfo.surfaceCapabilities.MinImageCount + 1;
-            if (swapChainInfo.surfaceCapabilities.MaxImageCount > 0 && swapChainInfo.imageCount > swapChainInfo.surfaceCapabilities.MaxImageCount)
-                swapChainInfo.imageCount = swapChainInfo.surfaceCapabilities.MaxImageCount;
+            swapchainInfo.imageCount = swapchainInfo.surfaceCapabilities.MinImageCount + 1;
+            if (swapchainInfo.surfaceCapabilities.MaxImageCount > 0 && swapchainInfo.imageCount > swapchainInfo.surfaceCapabilities.MaxImageCount)
+                swapchainInfo.imageCount = swapchainInfo.surfaceCapabilities.MaxImageCount;
 
             SwapchainCreateInfo createInfo = new SwapchainCreateInfo
             {
                 StructureType = StructureType.SwapchainCreateInfo,
                 Surface = surface,
-                MinImageCount = swapChainInfo.imageCount,
-                ImageFormat = swapChainInfo.surfaceFormat.Format,
-                ImageColorSpace = swapChainInfo.surfaceFormat.ColorSpace,
-                ImageExtent = swapChainInfo.imageExtent,
+                MinImageCount = swapchainInfo.imageCount,
+                ImageFormat = swapchainInfo.surfaceFormat.Format,
+                ImageColorSpace = swapchainInfo.surfaceFormat.ColorSpace,
+                ImageExtent = swapchainInfo.imageExtent,
                 ImageArrayLayers = 1,
                 ImageUsage = ImageUsageFlags.ColorAttachment,
-                PreTransform = swapChainInfo.surfaceCapabilities.CurrentTransform,
+                PreTransform = swapchainInfo.surfaceCapabilities.CurrentTransform,
                 CompositeAlpha = CompositeAlphaFlags.Opaque,
                 OldSwapchain = Swapchain.Null,
                 Clipped = true,
-                PresentMode = swapChainInfo.presentMode,
+                PresentMode = swapchainInfo.presentMode,
             };
 
             if (!queueFamilyIndices.IsSingleIndex)
@@ -423,22 +451,22 @@ namespace LearningCSharp
                 createInfo.QueueFamilyIndexCount = 0;
                 createInfo.QueueFamilyIndices = IntPtr.Zero;
             }
-            swapChain = logicalDevice.CreateSwapchain(ref createInfo);
-            swapChainImages = logicalDevice.GetSwapchainImages(swapChain);
+            swapchain = logicalDevice.CreateSwapchain(ref createInfo);
+            swapchainImages = logicalDevice.GetSwapchainImages(swapchain);
 
-            swapChainImageViews = new ImageView[swapChainImages.Length];
-            for (int i = 0; i < swapChainImageViews.Length; i++)
+            swapchainImageViews = new ImageView[swapchainImages.Length];
+            for (int i = 0; i < swapchainImageViews.Length; i++)
             {
                 ImageViewCreateInfo imageViewCreateInfo = new ImageViewCreateInfo
                 {
                     StructureType = StructureType.ImageViewCreateInfo,
                     Components = new ComponentMapping(ComponentSwizzle.Identity),
-                    Format = swapChainInfo.surfaceFormat.Format,
-                    Image = swapChainImages[i],
+                    Format = swapchainInfo.surfaceFormat.Format,
+                    Image = swapchainImages[i],
                     SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.Color, 0, 1, 0, 1),
                     ViewType = ImageViewType.Image2D,
                 };
-                swapChainImageViews[i] = logicalDevice.CreateImageView(ref imageViewCreateInfo);
+                swapchainImageViews[i] = logicalDevice.CreateImageView(ref imageViewCreateInfo);
             }
         }
 
@@ -446,7 +474,7 @@ namespace LearningCSharp
         {
             AttachmentDescription colorAttachment = new AttachmentDescription
             {
-                Format = swapChainInfo.surfaceFormat.Format,
+                Format = swapchainInfo.surfaceFormat.Format,
                 Samples = SampleCountFlags.Sample1,
                 LoadOperation = AttachmentLoadOperation.Clear,
                 StoreOperation = AttachmentStoreOperation.Store,
@@ -582,7 +610,7 @@ namespace LearningCSharp
 
             Rect2D scissor = new Rect2D
             {
-                Extent = swapChainInfo.imageExtent,
+                Extent = swapchainInfo.imageExtent,
                 Offset = new Offset2D(0, 0),
             };
             IntPtr viewportPtr;
@@ -630,7 +658,7 @@ namespace LearningCSharp
 
         static void CreateFrameBuffers()
         {
-            frameBuffers = new Framebuffer[swapChainImages.Length];
+            frameBuffers = new Framebuffer[swapchainImages.Length];
             for (int i = 0; i < frameBuffers.Length; i++)
             {
                 FramebufferCreateInfo createInfo = new FramebufferCreateInfo
@@ -638,9 +666,9 @@ namespace LearningCSharp
                     StructureType = StructureType.FramebufferCreateInfo,
                     RenderPass = renderPass,
                     AttachmentCount = 1,
-                    Attachments = Marshal.UnsafeAddrOfPinnedArrayElement(swapChainImageViews, i),
-                    Width = swapChainInfo.imageExtent.Width,
-                    Height = swapChainInfo.imageExtent.Height,
+                    Attachments = Marshal.UnsafeAddrOfPinnedArrayElement(swapchainImageViews, i),
+                    Width = swapchainInfo.imageExtent.Width,
+                    Height = swapchainInfo.imageExtent.Height,
                     Layers = 1,
                 };
                 frameBuffers[i] = logicalDevice.CreateFramebuffer(ref createInfo);
@@ -660,7 +688,7 @@ namespace LearningCSharp
 
         static void AllocateCommandBuffers()
         {
-            commandBuffers = new CommandBuffer[swapChainImages.Length];
+            commandBuffers = new CommandBuffer[swapchainImages.Length];
             for (int i = 0; i < commandBuffers.Length; i++)
             {
                 CommandBufferAllocateInfo allocateInfo = new CommandBufferAllocateInfo
@@ -694,7 +722,7 @@ namespace LearningCSharp
                     ClearValueCount = 1,
                     ClearValues = new IntPtr(&clearValue),
                     Framebuffer = frameBuffers[i],
-                    RenderArea = new Rect2D(new Offset2D(0, 0), swapChainInfo.imageExtent),
+                    RenderArea = new Rect2D(new Offset2D(0, 0), swapchainInfo.imageExtent),
                     RenderPass = renderPass,
                 };
                 buffer->BeginRenderPass(ref renderPassBeginInfo, SubpassContents.Inline);
