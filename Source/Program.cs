@@ -43,7 +43,8 @@ namespace LearningCSharp
         static Swapchain swapchain;
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
-        
+        static Image[] swapchainImages;
+
         static QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices.Invalid;
         static SwapchainInfo swapchainInfo;
 
@@ -297,6 +298,7 @@ namespace LearningCSharp
                 createInfo.QueueFamilyIndices = IntPtr.Zero;
             }
             swapchain = logicalDevice.CreateSwapchain(ref createInfo);
+            swapchainImages = logicalDevice.GetSwapchainImages(swapchain);
         }
 
         static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
