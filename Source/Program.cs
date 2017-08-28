@@ -60,6 +60,7 @@ namespace LearningCSharp
         static PhysicalDevice physicalDevice;
         static Device logicalDevice;
         static Swapchain swapchain;
+        static RenderPass renderPass;
 
         static Shader vertexShader;
         static Shader fragmentShader;
@@ -112,6 +113,8 @@ namespace LearningCSharp
             CreateLogicalDevice();
 
             CreateSwapchain();
+            CreateRenderPass();
+
             vertexShader = LoadShader("Shaders/vert.spv", ShaderStageFlags.Vertex);
             fragmentShader = LoadShader("Shaders/frag.spv", ShaderStageFlags.Fragment);
             CreatePipelineLayout();
@@ -122,9 +125,10 @@ namespace LearningCSharp
         {
             logicalDevice.DestroyPipelineLayout(pipelineLayout);
             logicalDevice.DestroyPipeline(graphicsPipeline);
-            vertexShader.Destroy(logicalDevice);
             fragmentShader.Destroy(logicalDevice);
+            vertexShader.Destroy(logicalDevice);
 
+            logicalDevice.DestroyRenderPass(renderPass);
             for (int i = 0; i < swapchainImageViews.Length; i++)
                 logicalDevice.DestroyImageView(swapchainImageViews[i]);
 
@@ -353,6 +357,46 @@ namespace LearningCSharp
             }
         }
 
+        static void CreateRenderPass()
+        {
+            AttachmentDescription colorAttachment = new AttachmentDescription
+            {
+                Format = swapchainInfo.surfaceFormat.Format,
+                Samples = SampleCountFlags.Sample1,
+                LoadOperation = AttachmentLoadOperation.Clear,
+                StoreOperation = AttachmentStoreOperation.Store,
+                StencilLoadOperation = AttachmentLoadOperation.DontCare,
+                StencilStoreOperation = AttachmentStoreOperation.DontCare,
+                InitialLayout = ImageLayout.Undefined,
+                FinalLayout = ImageLayout.PresentSource,
+            };
+
+            AttachmentReference colorAttachmentReference = new AttachmentReference
+            {
+                Attachment = 0,
+                Layout = ImageLayout.ColorAttachmentOptimal,
+            };
+
+            SubpassDescription subpass = new SubpassDescription
+            {
+                PipelineBindPoint = PipelineBindPoint.Graphics,
+                ColorAttachmentCount = 1,
+                ColorAttachments = new IntPtr(&colorAttachmentReference),
+            };
+
+            RenderPassCreateInfo createInfo = new RenderPassCreateInfo
+            {
+                StructureType = StructureType.RenderPassCreateInfo,
+                AttachmentCount = 1,
+                Attachments = new IntPtr(&colorAttachment),
+                DependencyCount = 0,
+                Dependencies = IntPtr.Zero,
+                SubpassCount = 1,
+                Subpasses = new IntPtr(&subpass),
+            };
+            renderPass = logicalDevice.CreateRenderPass(ref createInfo);
+        }
+
         static void CreatePipelineLayout()
         {
             PipelineLayoutCreateInfo createInfo = new PipelineLayoutCreateInfo
@@ -474,10 +518,10 @@ namespace LearningCSharp
                 StructureType = StructureType.GraphicsPipelineCreateInfo,
 
                 Layout = pipelineLayout,
+                RenderPass = renderPass,
+                Subpass = 0,
                 BasePipelineIndex = 0,
                 BasePipelineHandle = Pipeline.Null,
-                RenderPass = RenderPass.Null,
-                Subpass = 0,
 
                 ColorBlendState = new IntPtr(&colorBlendStage),
                 DepthStencilState = IntPtr.Zero,
