@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Collections.Generic;
@@ -41,6 +42,9 @@ namespace LearningCSharp
         static PhysicalDevice physicalDevice;
         static Device logicalDevice;
         static Swapchain swapchain;
+
+        static ShaderModule vertexShader;
+        static ShaderModule fragmentShader;
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
         static Image[] swapchainImages;
@@ -88,10 +92,15 @@ namespace LearningCSharp
             CreateLogicalDevice();
 
             CreateSwapchain();
+            vertexShader = LoadShader("Shaders/vert.spv");
+            fragmentShader = LoadShader("Shaders/frag.spv");
         }
 
         static void Deinitialize()
         {
+            logicalDevice.DestroyShaderModule(vertexShader);
+            logicalDevice.DestroyShaderModule(fragmentShader);
+
             for (int i = 0; i < swapchainImageViews.Length; i++)
                 logicalDevice.DestroyImageView(swapchainImageViews[i]);
 
@@ -359,6 +368,18 @@ namespace LearningCSharp
             actualExtent.Height = actualExtent.Width.Clamp(capabilities.MinImageExtent.Height, capabilities.MaxImageExtent.Height);
 
             return actualExtent;
+        }
+
+        static ShaderModule LoadShader(string filePath)
+        {
+            byte[] shader = File.ReadAllBytes(filePath);
+            ShaderModuleCreateInfo createInfo = new ShaderModuleCreateInfo
+            {
+                StructureType = StructureType.ShaderModuleCreateInfo,
+                Code = Marshal.UnsafeAddrOfPinnedArrayElement(shader, 0),
+                CodeSize = shader.Length,
+            };
+            return logicalDevice.CreateShaderModule(ref createInfo);
         }
 
         static IntPtr[] GetNamePointers<T>(string[] desiredNames, T[] availablePropertiesArray, string supportedObjectsNameOnFail)

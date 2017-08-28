@@ -1,22 +1,24 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout(binding = 5, location = 5) uniform UniformMVPMatrices
-{
-	mat4 model;
-	mat4 view;
-	mat4 projection;
-} mvpMatrices;
+const float SIZE = .5;
 
-layout(location = 0) in vec2 inVertexPosition;
-layout(location = 1) in vec3 inVertexColor;
+vec3 positions[] = vec3[](
+	vec3(0, -SIZE, 0),
+	vec3(SIZE, SIZE, 0),
+	vec3(-SIZE, SIZE, 0)
+	);
 
-layout(location = 0) out vec3 vertexColor;
+vec4 colors[] = vec4[](
+	vec4(1, 0, 0, 1),
+	vec4(0, 1, 0, 1),
+	vec4(0, 0, 1, 1)
+	);
+
+layout(location = 0) out vec4 vertexColor;
 
 void main()
 {
-	//gl_Position = mvpMatrices.projection * mvpMatrices.view * mvpMatrices.model * vec4(inVertexPosition, 0, 1);
-	gl_Position = vec4(inVertexPosition, 0, 1);
-	//vertexColor = inVertexColor;
-	vertexColor = vec3(mvpMatrices.model[0][0], mvpMatrices.model[0][1], mvpMatrices.view[1][1]);
+	gl_Position = vec4(positions[gl_VertexIndex], 1);
+	vertexColor = colors[gl_VertexIndex];
 }
