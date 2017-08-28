@@ -44,6 +44,7 @@ namespace LearningCSharp
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
         static Image[] swapchainImages;
+        static ImageView[] swapchainImageViews;
 
         static QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices.Invalid;
         static SwapchainInfo swapchainInfo;
@@ -91,6 +92,9 @@ namespace LearningCSharp
 
         static void Deinitialize()
         {
+            for (int i = 0; i < swapchainImageViews.Length; i++)
+                logicalDevice.DestroyImageView(swapchainImageViews[i]);
+
             logicalDevice.DestroySwapchain(swapchain);
 
             logicalDevice.Destroy();
@@ -299,6 +303,21 @@ namespace LearningCSharp
             }
             swapchain = logicalDevice.CreateSwapchain(ref createInfo);
             swapchainImages = logicalDevice.GetSwapchainImages(swapchain);
+
+            swapchainImageViews = new ImageView[swapchainImages.Length];
+            for (int i = 0; i < swapchainImageViews.Length; i++)
+            {
+                ImageViewCreateInfo imageViewCreateInfo = new ImageViewCreateInfo
+                {
+                    StructureType = StructureType.ImageViewCreateInfo,
+                    Components = new ComponentMapping(ComponentSwizzle.Identity),
+                    Format = swapchainInfo.surfaceFormat.Format,
+                    Image = swapchainImages[i],
+                    SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.Color, 0, 1, 0, 1),
+                    ViewType = ImageViewType.Image2D,
+                };
+                swapchainImageViews[i] = logicalDevice.CreateImageView(ref imageViewCreateInfo);
+            }
         }
 
         static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
