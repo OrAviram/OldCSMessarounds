@@ -72,9 +72,12 @@ namespace LearningCSharp
         static Image[] swapChainImages;
         static ImageView[] swapChainImageViews;
         static Framebuffer[] frameBuffers;
+        static CommandBuffer[] commandBuffers;
 
         static QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices.Invalid;
         static SwapChainInfo swapChainInfo;
+
+        static Viewport viewport;
 
         static IntPtr window;
 
@@ -86,7 +89,18 @@ namespace LearningCSharp
         {
             SDL.SDL_Init(SDL.SDL_INIT_VIDEO);
             window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1000, 500, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN);
-            Initialize();
+
+            SDL.SDL_GetWindowSize(window, out int width, out int height);
+            viewport = new Viewport
+            {
+                Width = width,
+                Height = height,
+                MaxDepth = 1,
+                MinDepth = 0,
+                X = 0,
+                Y = 0,
+            };
+            InitVulkan();
 
             bool running = true;
             while (running)
@@ -102,7 +116,7 @@ namespace LearningCSharp
                 // Just so I won't burn the CPU...
                 Thread.Sleep(5);
             }
-            Deinitialize();
+            DeinitVulkan();
             SDL.SDL_DestroyWindow(window);
             SDL.SDL_Quit();
 
@@ -110,7 +124,7 @@ namespace LearningCSharp
             Console.ReadKey(true);
         }
 
-        static void Initialize()
+        static void InitVulkan()
         {
             CreateInstance();
             SetupDebugReport();
@@ -128,9 +142,10 @@ namespace LearningCSharp
 
             CreateFrameBuffers();
             CreateCommandPool();
+            AllocateCommandBuffers();
         }
 
-        static void Deinitialize()
+        static void DeinitVulkan()
         {
             logicalDevice.DestroyCommandPool(commandPool);
             foreach (Framebuffer frameBuffer in frameBuffers)
@@ -498,28 +513,22 @@ namespace LearningCSharp
                 VertexBindingDescriptions = IntPtr.Zero,
             };
 
-            SDL.SDL_GetWindowSize(window, out int width, out int height);
-            Viewport viewport = new Viewport
-            {
-                Width = width,
-                Height = height,
-                MaxDepth = 1,
-                MinDepth = 0,
-                X = 0,
-                Y = 0,
-            };
             Rect2D scissor = new Rect2D
             {
                 Extent = swapChainInfo.imageExtent,
                 Offset = new Offset2D(0, 0),
             };
+            IntPtr viewportPtr;
+            fixed (void* viewportPointer = &viewport)
+                viewportPtr = (IntPtr)viewportPointer;
+
             PipelineViewportStateCreateInfo viewportState = new PipelineViewportStateCreateInfo
             {
                 StructureType = StructureType.PipelineViewportStateCreateInfo,
                 ScissorCount = 1,
                 Scissors = new IntPtr(&scissor),
                 ViewportCount = 1,
-                Viewports = new IntPtr(&viewport),
+                Viewports = viewportPtr,
             };
 
             PipelineShaderStageCreateInfo* shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
@@ -580,6 +589,58 @@ namespace LearningCSharp
                 QueueFamilyIndex = queueFamilyIndices.graphicsFamily,
             };
             commandPool = logicalDevice.CreateCommandPool(ref createInfo);
+        }
+
+        static void AllocateCommandBuffers()
+        {
+            commandBuffers = new CommandBuffer[swapChainImages.Length];
+            for (int i = 0; i < commandBuffers.Length; i++)
+            {
+                CommandBufferAllocateInfo allocateInfo = new CommandBufferAllocateInfo
+                {
+                    StructureType = StructureType.CommandBufferAllocateInfo,
+                    CommandBufferCount = 1,
+                    CommandPool = commandPool,
+                    Level = CommandBufferLevel.Primary,
+                };
+                CommandBuffer* buffer = (CommandBuffer*)Marshal.UnsafeAddrOfPinnedArrayElement(commandBuffers, i).ToPointer();
+                logicalDevice.AllocateCommandBuffers(ref allocateInfo, buffer);
+
+                CommandBufferBeginInfo beginInfo = new CommandBufferBeginInfo
+                {
+                    StructureType = StructureType.CommandBufferBeginInfo,
+                    Flags = CommandBufferUsageFlags.SimultaneousUse,
+                    InheritanceInfo = IntPtr.Zero,
+                };
+                buffer->Begin(ref beginInfo);
+
+                ClearValue clearValue = new ClearValue
+                {
+                    Color = new ClearColorValue
+                    {
+                        Float32 = new ClearColorValue.Float32Array { Value0 = 0, Value1 = 0, Value2 = 0, Value3 = 1 }
+                    }
+                };
+                RenderPassBeginInfo renderPassBeginInfo = new RenderPassBeginInfo
+                {
+                    StructureType = StructureType.RenderPassBeginInfo,
+                    ClearValueCount = 1,
+                    ClearValues = new IntPtr(&clearValue),
+                    Framebuffer = frameBuffers[i],
+                    RenderArea = new Rect2D(new Offset2D(0, 0), swapChainInfo.imageExtent),
+                    RenderPass = renderPass,
+                };
+                buffer->BeginRenderPass(ref renderPassBeginInfo, SubpassContents.Inline);
+
+                fixed (Viewport* viewportPtr = &viewport)
+                   buffer->SetViewport(0, 1, viewportPtr);
+
+                buffer->BindPipeline(PipelineBindPoint.Graphics, graphicsPipeline);
+                buffer->Draw(3, 1, 0, 0);
+
+                buffer->EndRenderPass();
+                buffer->End();
+            }
         }
 
         static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
