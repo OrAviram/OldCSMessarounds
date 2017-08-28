@@ -22,6 +22,15 @@ namespace LearningCSharp
         public uint[] ToUniqueArray => IsSingleIndex ? new uint[] { graphicsFamily } : new uint[] { graphicsFamily, presentationFamily };
     }
 
+    struct SwapchainInfo
+    {
+        public SurfaceFormat surfaceFormat;
+        public PresentMode presentMode;
+        public SurfaceCapabilities surfaceCapabilities;
+        public Extent2D imageExtent;
+        public uint imageCount;
+    }
+
     static unsafe class Program
     {
         delegate void DebugReportCallbackDel(DebugReportFlags flags, DebugReportObjectType objectType, ulong obj, PointerSize location, int code, string layerPrefix, string message, IntPtr userData);
@@ -31,9 +40,12 @@ namespace LearningCSharp
         static Surface surface;
         static PhysicalDevice physicalDevice;
         static Device logicalDevice;
-        static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
+        static Swapchain swapchain;
 
+        static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
+        
         static QueueFamilyIndices queueFamilyIndices = QueueFamilyIndices.Invalid;
+        static SwapchainInfo swapchainInfo;
 
         static IntPtr window;
 
@@ -72,10 +84,14 @@ namespace LearningCSharp
             CreateSurface();
             ChoosePhysicalDevice();
             CreateLogicalDevice();
+
+            CreateSwapchain();
         }
 
         static void Deinitialize()
         {
+            logicalDevice.DestroySwapchain(swapchain);
+
             logicalDevice.Destroy();
             instance.DestroySurface(surface);
             instance.DestroyDebugReportCallback(debugReportCallback);
@@ -238,6 +254,90 @@ namespace LearningCSharp
 
                 queues.Add(index, logicalDevice.GetQueue(index, 0));
             }
+        }
+
+        static void CreateSwapchain()
+        {
+            physicalDevice.GetSurfaceCapabilities(surface, out swapchainInfo.surfaceCapabilities);
+            swapchainInfo.surfaceFormat = ChooseSurfaceFormat(physicalDevice.GetSurfaceFormats(surface));
+            swapchainInfo.presentMode = ChoosePresentMode(physicalDevice.GetSurfacePresentModes(surface));
+            swapchainInfo.imageExtent = ChooseImageExtent(swapchainInfo.surfaceCapabilities);
+
+            swapchainInfo.imageCount = swapchainInfo.surfaceCapabilities.MinImageCount + 1;
+            if (swapchainInfo.surfaceCapabilities.MaxImageCount > 0 && swapchainInfo.imageCount > swapchainInfo.surfaceCapabilities.MaxImageCount)
+                swapchainInfo.imageCount = swapchainInfo.surfaceCapabilities.MaxImageCount;
+
+            SwapchainCreateInfo createInfo = new SwapchainCreateInfo
+            {
+                StructureType = StructureType.SwapchainCreateInfo,
+                Surface = surface,
+                MinImageCount = swapchainInfo.imageCount,
+                ImageFormat = swapchainInfo.surfaceFormat.Format,
+                ImageColorSpace = swapchainInfo.surfaceFormat.ColorSpace,
+                ImageExtent = swapchainInfo.imageExtent,
+                ImageArrayLayers = 1,
+                ImageUsage = ImageUsageFlags.ColorAttachment,
+                PreTransform = swapchainInfo.surfaceCapabilities.CurrentTransform,
+                CompositeAlpha = CompositeAlphaFlags.Opaque,
+                OldSwapchain = Swapchain.Null,
+                Clipped = true,
+                PresentMode = swapchainInfo.presentMode,
+            };
+
+            if (!queueFamilyIndices.IsSingleIndex)
+            {
+                createInfo.ImageSharingMode = SharingMode.Concurrent;
+                createInfo.QueueFamilyIndexCount = 2;
+                createInfo.QueueFamilyIndices = Marshal.UnsafeAddrOfPinnedArrayElement(queueFamilyIndices.ToUniqueArray, 0);
+            }
+            else
+            {
+                createInfo.ImageSharingMode = SharingMode.Exclusive;
+                createInfo.QueueFamilyIndexCount = 0;
+                createInfo.QueueFamilyIndices = IntPtr.Zero;
+            }
+            swapchain = logicalDevice.CreateSwapchain(ref createInfo);
+        }
+
+        static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
+        {
+            if (availableFormats.Length == 1 && availableFormats[0].Format == Format.Undefined)
+                return new SurfaceFormat { Format = Format.B8G8R8A8UNorm, ColorSpace = ColorSpace.SRgbNonlinear };
+
+            foreach (SurfaceFormat format in availableFormats)
+            {
+                if (format.Format == Format.B8G8R8A8UNorm && format.ColorSpace == ColorSpace.SRgbNonlinear)
+                    return format;
+            }
+            return availableFormats[0];
+        }
+
+        static PresentMode ChoosePresentMode(PresentMode[] availablePresentModes)
+        {
+            PresentMode bestPresentMode = PresentMode.Fifo;
+            foreach (PresentMode presentMode in availablePresentModes)
+            {
+                if (presentMode == PresentMode.Mailbox)
+                    return presentMode;
+
+                if (presentMode == PresentMode.Immediate)
+                    bestPresentMode = presentMode;
+            }
+            return bestPresentMode;
+        }
+
+        static Extent2D ChooseImageExtent(SurfaceCapabilities capabilities)
+        {
+            if (capabilities.CurrentExtent.Width != uint.MaxValue)
+                return capabilities.CurrentExtent;
+
+            SDL.SDL_GetWindowSize(window, out int width, out int height);
+            Extent2D actualExtent = new Extent2D((uint)width, (uint)height);
+
+            actualExtent.Width = actualExtent.Width.Clamp(capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width);
+            actualExtent.Height = actualExtent.Width.Clamp(capabilities.MinImageExtent.Height, capabilities.MaxImageExtent.Height);
+
+            return actualExtent;
         }
 
         static IntPtr[] GetNamePointers<T>(string[] desiredNames, T[] availablePropertiesArray, string supportedObjectsNameOnFail)
