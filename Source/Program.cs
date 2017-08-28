@@ -6,7 +6,9 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using SDL2;
 using SharpVulkan;
+
 using Version = SharpVulkan.Version;
+using Semaphore = SharpVulkan.Semaphore;
 
 namespace LearningCSharp
 {
@@ -68,6 +70,9 @@ namespace LearningCSharp
         static Pipeline graphicsPipeline;
         static PipelineLayout pipelineLayout;
 
+        static Semaphore imageAvailableSemaphore;
+        static Semaphore renderFinishedSemaphore;
+
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
         static Image[] swapChainImages;
         static ImageView[] swapChainImageViews;
@@ -113,6 +118,8 @@ namespace LearningCSharp
                         break;
                     }
                 }
+                DrawFrame();
+
                 // Just so I won't burn the CPU...
                 Thread.Sleep(5);
             }
@@ -143,10 +150,20 @@ namespace LearningCSharp
             CreateFrameBuffers();
             CreateCommandPool();
             AllocateCommandBuffers();
+
+            CreateSemaphores();
+        }
+
+        static void DrawFrame()
+        {
+            Console.WriteLine("Doing some amazing rendering!");
         }
 
         static void DeinitVulkan()
         {
+            logicalDevice.DestroySemaphore(imageAvailableSemaphore);
+            logicalDevice.DestroySemaphore(renderFinishedSemaphore);
+
             logicalDevice.DestroyCommandPool(commandPool);
             foreach (Framebuffer frameBuffer in frameBuffers)
                 logicalDevice.DestroyFramebuffer(frameBuffer);
@@ -641,6 +658,16 @@ namespace LearningCSharp
                 buffer->EndRenderPass();
                 buffer->End();
             }
+        }
+
+        static void CreateSemaphores()
+        {
+            SemaphoreCreateInfo createInfo = new SemaphoreCreateInfo
+            {
+                StructureType = StructureType.SemaphoreCreateInfo,
+            };
+            imageAvailableSemaphore = logicalDevice.CreateSemaphore(ref createInfo);
+            renderFinishedSemaphore = logicalDevice.CreateSemaphore(ref createInfo);
         }
 
         static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
