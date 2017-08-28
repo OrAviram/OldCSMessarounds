@@ -121,7 +121,7 @@ namespace LearningCSharp
                 DrawFrame();
 
                 // Just so I won't burn the CPU...
-                Thread.Sleep(5);
+                //Thread.Sleep(5);
             }
             DeinitVulkan();
             SDL.SDL_DestroyWindow(window);
@@ -156,11 +156,52 @@ namespace LearningCSharp
 
         static void DrawFrame()
         {
-            Console.WriteLine("Doing some amazing rendering!");
+            Queue graphicsQueue = queues[queueFamilyIndices.graphicsFamily];
+            graphicsQueue.WaitIdle();
+            uint imageIndex = logicalDevice.AcquireNextImage(swapChain, ulong.MaxValue, imageAvailableSemaphore, Fence.Null);
+
+            Semaphore* imageAvailableSemaphorePointer = stackalloc Semaphore[1];
+            *imageAvailableSemaphorePointer = imageAvailableSemaphore;
+
+            Semaphore* renderFinishedSemaphorePointer = stackalloc Semaphore[1];
+            *renderFinishedSemaphorePointer = renderFinishedSemaphore;
+
+            Swapchain* swapchainPointer = stackalloc Swapchain[1];
+            *swapchainPointer = swapChain;
+
+            PipelineStageFlags* pipelineStageFlags = stackalloc PipelineStageFlags[1];
+            *pipelineStageFlags = PipelineStageFlags.ColorAttachmentOutput;
+
+            SubmitInfo submitInfo = new SubmitInfo
+            {
+                StructureType = StructureType.SubmitInfo,
+                WaitSemaphoreCount = 1,
+                WaitSemaphores = (IntPtr)imageAvailableSemaphorePointer,
+                WaitDstStageMask = (IntPtr)pipelineStageFlags,
+                CommandBufferCount = 1,
+                CommandBuffers = Marshal.UnsafeAddrOfPinnedArrayElement(commandBuffers, (int)imageIndex),
+                SignalSemaphoreCount = 1,
+                SignalSemaphores = (IntPtr)renderFinishedSemaphorePointer,
+            };
+            graphicsQueue.Submit(1, &submitInfo, Fence.Null);
+
+            PresentInfo presentInfo = new PresentInfo
+            {
+                StructureType = StructureType.PresentInfo,
+                WaitSemaphoreCount = 1,
+                WaitSemaphores = (IntPtr)renderFinishedSemaphorePointer,
+                SwapchainCount = 1,
+                Swapchains = (IntPtr)swapchainPointer,
+                ImageIndices = new IntPtr(&imageIndex),
+                Results = IntPtr.Zero,
+            };
+            graphicsQueue.Present(ref presentInfo);
         }
 
         static void DeinitVulkan()
         {
+            queues[queueFamilyIndices.graphicsFamily].WaitIdle();
+
             logicalDevice.DestroySemaphore(imageAvailableSemaphore);
             logicalDevice.DestroySemaphore(renderFinishedSemaphore);
 
@@ -429,13 +470,23 @@ namespace LearningCSharp
                 ColorAttachments = new IntPtr(&colorAttachmentReference),
             };
 
+            SubpassDependency dependency = new SubpassDependency
+            {
+                SourceSubpass = Vulkan.QueueFamilyIgnored,
+                DestinationSubpass = 0,
+                SourceStageMask = PipelineStageFlags.ColorAttachmentOutput,
+                SourceAccessMask = AccessFlags.None,
+                DestinationStageMask = PipelineStageFlags.ColorAttachmentOutput,
+                DestinationAccessMask = AccessFlags.ColorAttachmentRead | AccessFlags.ColorAttachmentWrite,
+            };
+
             RenderPassCreateInfo createInfo = new RenderPassCreateInfo
             {
                 StructureType = StructureType.RenderPassCreateInfo,
                 AttachmentCount = 1,
                 Attachments = new IntPtr(&colorAttachment),
-                DependencyCount = 0,
-                Dependencies = IntPtr.Zero,
+                DependencyCount = 1,
+                Dependencies = new IntPtr(&dependency),
                 SubpassCount = 1,
                 Subpasses = new IntPtr(&subpass),
             };
