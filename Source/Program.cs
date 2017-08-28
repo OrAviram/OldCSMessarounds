@@ -171,7 +171,7 @@ namespace LearningCSharp
 
             PipelineStageFlags* pipelineStageFlags = stackalloc PipelineStageFlags[1];
             *pipelineStageFlags = PipelineStageFlags.ColorAttachmentOutput;
-
+            
             SubmitInfo submitInfo = new SubmitInfo
             {
                 StructureType = StructureType.SubmitInfo,
