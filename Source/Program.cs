@@ -61,6 +61,7 @@ namespace LearningCSharp
         static Device logicalDevice;
         static Swapchain swapChain;
         static RenderPass renderPass;
+        static CommandPool commandPool;
 
         static Shader vertexShader;
         static Shader fragmentShader;
@@ -126,10 +127,12 @@ namespace LearningCSharp
             CreateGraphicsPipeline();
 
             CreateFrameBuffers();
+            CreateCommandPool();
         }
 
         static void Deinitialize()
         {
+            logicalDevice.DestroyCommandPool(commandPool);
             foreach (Framebuffer frameBuffer in frameBuffers)
                 logicalDevice.DestroyFramebuffer(frameBuffer);
 
@@ -566,6 +569,17 @@ namespace LearningCSharp
                 };
                 frameBuffers[i] = logicalDevice.CreateFramebuffer(ref createInfo);
             }
+        }
+
+        static void CreateCommandPool()
+        {
+            CommandPoolCreateInfo createInfo = new CommandPoolCreateInfo
+            {
+                StructureType = StructureType.CommandPoolCreateInfo,
+                Flags = CommandPoolCreateFlags.None,
+                QueueFamilyIndex = queueFamilyIndices.graphicsFamily,
+            };
+            commandPool = logicalDevice.CreateCommandPool(ref createInfo);
         }
 
         static SurfaceFormat ChooseSurfaceFormat(SurfaceFormat[] availableFormats)
