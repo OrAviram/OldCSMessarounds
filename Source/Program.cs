@@ -92,36 +92,8 @@ namespace LearningCSharp
                 EngineName = Marshal.StringToHGlobalAnsi("Vulkan Sandbox Engine"),
                 EngineVersion = new Version(1, 0, 0),
             };
-
-            int currentExtensionOrLayerIndex = 0;
-            ExtensionProperties[] availableExtensionProperties = Vulkan.GetInstanceExtensionProperties();
-            IntPtr[] availableExtensions = new IntPtr[extensions.Length];
-            for (int i = 0; i < availableExtensionProperties.Length; i++)
-            {
-                fixed (void* extension = &availableExtensionProperties[i].ExtensionName.Value0)
-                {
-                    string name = Marshal.PtrToStringAnsi((IntPtr)extension);
-                    if (extensions.Contains(name))
-                        availableExtensions[currentExtensionOrLayerIndex++] = (IntPtr)extension;
-                }
-            }
-            if (availableExtensions.Contains(IntPtr.Zero))
-                throw new Exception("Not all extensions supported!");
-            
-            currentExtensionOrLayerIndex = 0;
-            LayerProperties[] availableValidationLayerProperties = Vulkan.InstanceLayerProperties;
-            IntPtr[] availableValidationLayers = new IntPtr[validationLayers.Length];
-            for (int i = 0; i < availableValidationLayerProperties.Length; i++)
-            {
-                fixed (void* layer = &availableValidationLayerProperties[i].LayerName.Value0)
-                {
-                    string name = Marshal.PtrToStringAnsi((IntPtr)layer);
-                    if (validationLayers.Contains(name))
-                        availableValidationLayers[currentExtensionOrLayerIndex++] = (IntPtr)layer;
-                }
-            }
-            if (availableValidationLayers.Contains(IntPtr.Zero))
-                throw new Exception("Not all validation layers supported!");
+            IntPtr[] availableExtensions = GetNamePointers(extensions, Vulkan.GetInstanceExtensionProperties(), "extensions");
+            IntPtr[] availableValidationLayers = GetNamePointers(validationLayers, Vulkan.InstanceLayerProperties, "validation layers");
 
             fixed (void* extensions = &availableExtensions[0])
             fixed (void* layers = &availableValidationLayers[0])
@@ -253,6 +225,22 @@ namespace LearningCSharp
 
                 queues.Add(index, logicalDevice.GetQueue(index, 0));
             }
+        }
+
+        static IntPtr[] GetNamePointers<T>(string[] desiredNames, T[] availablePropertiesArray, string supportedObjectsNameOnFail)
+            where T : struct
+        {
+            IntPtr[] pointers = new IntPtr[desiredNames.Length];
+            int currentPointerIndex = 0;
+            for (int i = 0; i < availablePropertiesArray.Length; i++)
+            {
+                IntPtr pointer = Marshal.UnsafeAddrOfPinnedArrayElement(availablePropertiesArray, i);
+                if (desiredNames.Contains(Marshal.PtrToStringAnsi(pointer)))
+                    pointers[currentPointerIndex++] = pointer;
+            }
+            if (pointers.Contains(IntPtr.Zero))
+                throw new Exception("Not all " + supportedObjectsNameOnFail + " supported!");
+            return pointers;
         }
     }
 }
