@@ -922,11 +922,7 @@ namespace LearningCSharp
             buffer.data = logicalDevice.AllocateMemory(ref allocateInfo);
 
             IntPtr memory = logicalDevice.MapMemory(buffer.data, 0, size, MemoryMapFlags.None);
-            {
-                byte[] byteData = new byte[size];
-                System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), Marshal.UnsafeAddrOfPinnedArrayElement(byteData, 0).ToPointer(), byteData.Length, byteData.Length);
-                Marshal.Copy(byteData, 0, memory, byteData.Length);
-            }
+            System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), size, size);
             logicalDevice.UnmapMemory(buffer.data);
 
             logicalDevice.BindBufferMemory(buffer.buffer, buffer.data, 0);
