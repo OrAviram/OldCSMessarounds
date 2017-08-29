@@ -226,13 +226,6 @@ namespace LearningCSharp
             ChoosePhysicalDevice();
             CreateLogicalDevice();
 
-            vertexBuffer = CreateBuffer(new Vertex[]
-            {
-                new Vertex { position = new Vector3(0, -TRIANGLE_SIZE, 0), color = new Vector4(1, 0, 0, 1) },
-                new Vertex { position = new Vector3(TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 1, 0, 1) },
-                new Vertex { position = new Vector3(-TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 0, 1, 1) },
-            }, BufferUsageFlags.VertexBuffer);
-
             CreateSwapchain();
             CreateRenderPass();
 
@@ -243,6 +236,7 @@ namespace LearningCSharp
 
             CreateFrameBuffers();
             CreateCommandPool();
+            CreateVertexBuffer();
             AllocateCommandBuffers();
 
             CreateSemaphores();
@@ -753,6 +747,22 @@ namespace LearningCSharp
             commandPool = logicalDevice.CreateCommandPool(ref createInfo);
         }
 
+        static void CreateVertexBuffer()
+        {
+            Buffer stagingBuffer = CreateBuffer(new Vertex[]
+            {
+                new Vertex { position = new Vector3(0, -TRIANGLE_SIZE, 0), color = new Vector4(1, 0, 0, 1) },
+                new Vertex { position = new Vector3(TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 1, 0, 1) },
+                new Vertex { position = new Vector3(-TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 0, 1, 1) },
+            }, BufferUsageFlags.TransferSource);
+
+            ulong size = (ulong)Marshal.SizeOf<Vertex>() * 3;
+            vertexBuffer = CreateBuffer<Vertex>(null, size, BufferUsageFlags.VertexBuffer | BufferUsageFlags.TransferDestination, MemoryPropertyFlags.DeviceLocal);
+
+            CopyBuffer(stagingBuffer.buffer, vertexBuffer.buffer, size);
+            stagingBuffer.Destroy(logicalDevice);
+        }
+
         static void AllocateCommandBuffers()
         {
             commandBuffers = new CommandBuffer[swapchainImages.Length];
@@ -884,11 +894,9 @@ namespace LearningCSharp
             return new Shader(unmanagedEntryPointName) { module = module, pipelineStage = pipelineStage };
         }
 
-        static Buffer CreateBuffer<T>(T[] data, BufferUsageFlags usage)
+        static Buffer CreateBuffer<T>(T[] data, ulong size, BufferUsageFlags usage, MemoryPropertyFlags memoryPropertyFlags = MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent)
             where T : struct
         {
-            ulong size = (ulong)(Marshal.SizeOf<T>() * data.Length);
-
             Buffer buffer = new Buffer();
             BufferCreateInfo createInfo = new BufferCreateInfo
             {
@@ -906,7 +914,7 @@ namespace LearningCSharp
             for (uint i = 0; i < memoryProperties.MemoryTypeCount; i++)
             {
                 MemoryType* memoryType = &memoryProperties.MemoryTypes.Value0 + i;
-                if ((memoryRequirements.MemoryTypeBits & (1 << (int)i)) != 0 && memoryType->PropertyFlags.HasFlag(MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent))
+                if ((memoryRequirements.MemoryTypeBits & (1 << (int)i)) != 0 && memoryType->PropertyFlags.HasFlag(memoryPropertyFlags))
                 {
                     memoryTypeIndex = i;
                     break;
@@ -920,14 +928,60 @@ namespace LearningCSharp
                 MemoryTypeIndex = memoryTypeIndex,
             };
             buffer.data = logicalDevice.AllocateMemory(ref allocateInfo);
-
-            IntPtr memory = logicalDevice.MapMemory(buffer.data, 0, size, MemoryMapFlags.None);
-            System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), size, size);
-            logicalDevice.UnmapMemory(buffer.data);
-
             logicalDevice.BindBufferMemory(buffer.buffer, buffer.data, 0);
 
+            if (data != null)
+            {
+                IntPtr memory = logicalDevice.MapMemory(buffer.data, 0, size, MemoryMapFlags.None);
+                System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), size, size);
+                logicalDevice.UnmapMemory(buffer.data);
+            }
             return buffer;
+        }
+
+        static Buffer CreateBuffer<T>(T[] data, BufferUsageFlags usage, MemoryPropertyFlags memoryPropertyFlags = MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent)
+            where T : struct => CreateBuffer(data, (ulong)(Marshal.SizeOf<T>() * data.Length), usage, memoryPropertyFlags);
+
+        static void CopyBuffer(SharpVulkan.Buffer source, SharpVulkan.Buffer destination, ulong size)
+        {
+            CommandBufferAllocateInfo allocateInfo = new CommandBufferAllocateInfo
+            {
+                StructureType = StructureType.CommandBufferAllocateInfo,
+                Level = CommandBufferLevel.Primary,
+                CommandPool = commandPool,
+                CommandBufferCount = 1,
+            };
+            CommandBuffer commandBuffer = CommandBuffer.Null;
+            logicalDevice.AllocateCommandBuffers(ref allocateInfo, &commandBuffer);
+
+            CommandBufferBeginInfo beginInfo = new CommandBufferBeginInfo
+            {
+                StructureType = StructureType.CommandBufferBeginInfo,
+                Flags = CommandBufferUsageFlags.OneTimeSubmit,
+            };
+            commandBuffer.Begin(ref beginInfo);
+
+            BufferCopy copyRegion = new BufferCopy
+            {
+                SourceOffset = 0,
+                DestinationOffset = 0,
+                Size = size,
+            };
+            commandBuffer.CopyBuffer(source, destination, 1, &copyRegion);
+            commandBuffer.End();
+
+            SubmitInfo submitInfo = new SubmitInfo
+            {
+                StructureType = StructureType.SubmitInfo,
+                CommandBufferCount = 1,
+                CommandBuffers = new IntPtr(&commandBuffer),
+            };
+
+            Queue graphicsQueue = queues[queueFamilyIndices.graphicsFamily];
+            graphicsQueue.Submit(1, &submitInfo, Fence.Null);
+            graphicsQueue.WaitIdle();
+
+            logicalDevice.FreeCommandBuffers(commandPool, 1, &commandBuffer);
         }
 
         static IntPtr[] GetNamePointers<T>(string[] desiredNames, T[] availablePropertiesArray, string supportedObjectsNameOnFail)
