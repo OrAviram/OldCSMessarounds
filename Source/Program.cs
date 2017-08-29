@@ -100,7 +100,7 @@ namespace LearningCSharp
 
     static unsafe class Program
     {
-        const float TRIANGLE_SIZE = 1;
+        const float RECTANGLE_SIZE = .5f;
 
         delegate void DebugReportCallbackDel(DebugReportFlags flags, DebugReportObjectType objectType, ulong obj, PointerSize location, int code, string layerPrefix, string message, IntPtr userData);
 
@@ -122,6 +122,7 @@ namespace LearningCSharp
         static Semaphore renderFinishedSemaphore;
 
         static Buffer vertexBuffer;
+        static Buffer indexBuffer;
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
         static Image[] swapchainImages;
@@ -135,6 +136,16 @@ namespace LearningCSharp
         static Viewport viewport;
 
         static IntPtr window;
+
+        static readonly Vertex[] vertices = new Vertex[]
+        {
+            new Vertex { position = new Vector3(-RECTANGLE_SIZE, -RECTANGLE_SIZE, 0), color = new Vector4(1, 1, 1, 1) },
+            new Vertex { position = new Vector3(RECTANGLE_SIZE, -RECTANGLE_SIZE, 0), color = new Vector4(0, 0, 0, 1) },
+            new Vertex { position = new Vector3(RECTANGLE_SIZE, RECTANGLE_SIZE, 0), color = new Vector4(1, 1, 1, 1) },
+            new Vertex { position = new Vector3(-RECTANGLE_SIZE, RECTANGLE_SIZE, 0), color = new Vector4(0, 0, 0, 1) },
+        };
+        static readonly uint[] indices = new uint[] { 0, 1, 2, 2, 3, 0 };
+        static readonly Vector4 clearColor = new Vector4(0, 0, 0, 1);
 
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
         static readonly string[] validationLayers = new string[] { "VK_LAYER_LUNARG_standard_validation" };
@@ -236,12 +247,8 @@ namespace LearningCSharp
 
             CreateFrameBuffers();
             CreateCommandPool();
-            vertexBuffer = MakeBufferWithStagingBuffer(new Vertex[]
-            {
-                new Vertex { position = new Vector3(0, -TRIANGLE_SIZE, 0), color = new Vector4(1, 0, 0, 1) },
-                new Vertex { position = new Vector3(TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 1, 0, 1) },
-                new Vertex { position = new Vector3(-TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 0, 1, 1) },
-            }, BufferUsageFlags.VertexBuffer);
+            vertexBuffer = MakeBufferWithStagingBuffer(vertices, BufferUsageFlags.VertexBuffer);
+            indexBuffer = MakeBufferWithStagingBuffer(indices, BufferUsageFlags.IndexBuffer);
             AllocateCommandBuffers();
 
             CreateSemaphores();
@@ -297,6 +304,7 @@ namespace LearningCSharp
             CleanUpSwapchain();
 
             vertexBuffer.Destroy(logicalDevice);
+            indexBuffer.Destroy(logicalDevice);
 
             logicalDevice.DestroySemaphore(imageAvailableSemaphore);
             logicalDevice.DestroySemaphore(renderFinishedSemaphore);
@@ -779,7 +787,7 @@ namespace LearningCSharp
                 {
                     Color = new ClearColorValue
                     {
-                        Float32 = new ClearColorValue.Float32Array { Value0 = 0, Value1 = 0, Value2 = 0, Value3 = 1 }
+                        Float32 = new ClearColorValue.Float32Array { Value0 = clearColor.X, Value1 = clearColor.Y, Value2 = clearColor.Z, Value3 = clearColor.W }
                     }
                 };
                 RenderPassBeginInfo renderPassBeginInfo = new RenderPassBeginInfo
@@ -803,7 +811,8 @@ namespace LearningCSharp
                     *offsets = 0;
                     buffer->BindVertexBuffers(0, 1, dataBuffer, offsets);
                 }
-                buffer->Draw(3, 1, 0, 0);
+                buffer->BindIndexBuffer(indexBuffer.buffer, 0, IndexType.UInt32);
+                buffer->DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
 
                 buffer->EndRenderPass();
                 buffer->End();
@@ -980,7 +989,7 @@ namespace LearningCSharp
         {
             Buffer stagingBuffer = CreateBuffer(data, BufferUsageFlags.TransferSource);
 
-            ulong size = (ulong)Marshal.SizeOf<Vertex>() * 3;
+            ulong size = (ulong)(Marshal.SizeOf<T>() * data.Length);
             Buffer buffer = CreateBuffer(size, usage | BufferUsageFlags.TransferDestination, MemoryPropertyFlags.DeviceLocal);
 
             CopyBuffer(stagingBuffer.buffer, buffer.buffer, size);
