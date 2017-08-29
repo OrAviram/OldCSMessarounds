@@ -757,7 +757,7 @@ namespace LearningCSharp
             }, BufferUsageFlags.TransferSource);
 
             ulong size = (ulong)Marshal.SizeOf<Vertex>() * 3;
-            vertexBuffer = CreateBuffer<Vertex>(null, size, BufferUsageFlags.VertexBuffer | BufferUsageFlags.TransferDestination, MemoryPropertyFlags.DeviceLocal);
+            vertexBuffer = CreateBuffer(size, BufferUsageFlags.VertexBuffer | BufferUsageFlags.TransferDestination, MemoryPropertyFlags.DeviceLocal);
 
             CopyBuffer(stagingBuffer.buffer, vertexBuffer.buffer, size);
             stagingBuffer.Destroy(logicalDevice);
@@ -894,8 +894,7 @@ namespace LearningCSharp
             return new Shader(unmanagedEntryPointName) { module = module, pipelineStage = pipelineStage };
         }
 
-        static Buffer CreateBuffer<T>(T[] data, ulong size, BufferUsageFlags usage, MemoryPropertyFlags memoryPropertyFlags = MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent)
-            where T : struct
+        static Buffer CreateBuffer(ulong size, BufferUsageFlags usage, MemoryPropertyFlags memoryPropertyFlags = MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent)
         {
             Buffer buffer = new Buffer();
             BufferCreateInfo createInfo = new BufferCreateInfo
@@ -929,18 +928,21 @@ namespace LearningCSharp
             };
             buffer.data = logicalDevice.AllocateMemory(ref allocateInfo);
             logicalDevice.BindBufferMemory(buffer.buffer, buffer.data, 0);
-
-            if (data != null)
-            {
-                IntPtr memory = logicalDevice.MapMemory(buffer.data, 0, size, MemoryMapFlags.None);
-                System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), size, size);
-                logicalDevice.UnmapMemory(buffer.data);
-            }
             return buffer;
         }
 
         static Buffer CreateBuffer<T>(T[] data, BufferUsageFlags usage, MemoryPropertyFlags memoryPropertyFlags = MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent)
-            where T : struct => CreateBuffer(data, (ulong)(Marshal.SizeOf<T>() * data.Length), usage, memoryPropertyFlags);
+            where T : struct
+        {
+            ulong size = (ulong)(Marshal.SizeOf<T>() * data.Length);
+            Buffer buffer = CreateBuffer(size, usage, memoryPropertyFlags);
+
+            IntPtr memory = logicalDevice.MapMemory(buffer.data, 0, size, MemoryMapFlags.None);
+            System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), size, size);
+            logicalDevice.UnmapMemory(buffer.data);
+
+            return buffer;
+        }
 
         static void CopyBuffer(SharpVulkan.Buffer source, SharpVulkan.Buffer destination, ulong size)
         {
