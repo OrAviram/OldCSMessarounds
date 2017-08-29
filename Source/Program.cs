@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using SDL2;
@@ -51,8 +52,56 @@ namespace LearningCSharp
         }
     }
 
+    unsafe struct Vertex
+    {
+        public Vector3 position;
+        public Vector4 color;
+
+        public static readonly Tuple<VertexInputAttributeDescription, VertexInputAttributeDescription> attributeDescriptions = new Tuple<VertexInputAttributeDescription, VertexInputAttributeDescription>
+            (new VertexInputAttributeDescription
+            {
+                Binding = 0,
+                Format = Format.R32G32B32SFloat,
+                Location = 0,
+                Offset = (uint)Marshal.OffsetOf<Vertex>("position"),
+            },
+            new VertexInputAttributeDescription
+            {
+                Binding = 0,
+                Format = Format.R32G32B32A32SFloat,
+                Location = 1,
+                Offset = (uint)Marshal.OffsetOf<Vertex>("color"),
+            });
+
+        public static readonly VertexInputBindingDescription bindingDescription = new VertexInputBindingDescription
+        {
+            Binding = 0,
+            InputRate = VertexInputRate.Vertex,
+            Stride = (uint)Marshal.SizeOf<Vertex>(),
+        };
+
+        public override string ToString()
+        {
+            return $"{{ Position: {position}, Color: {color} }}";
+        }
+    }
+
+    unsafe struct Buffer
+    {
+        public SharpVulkan.Buffer buffer;
+        public DeviceMemory data;
+
+        public void Destroy(Device device)
+        {
+            device.DestroyBuffer(buffer);
+            device.FreeMemory(data);
+        }
+    }
+
     static unsafe class Program
     {
+        const float TRIANGLE_SIZE = 1;
+
         delegate void DebugReportCallbackDel(DebugReportFlags flags, DebugReportObjectType objectType, ulong obj, PointerSize location, int code, string layerPrefix, string message, IntPtr userData);
 
         static Instance instance;
@@ -71,6 +120,8 @@ namespace LearningCSharp
 
         static Semaphore imageAvailableSemaphore;
         static Semaphore renderFinishedSemaphore;
+
+        static Buffer vertexBuffer;
 
         static Dictionary<uint, Queue> queues = new Dictionary<uint, Queue>();
         static Image[] swapchainImages;
@@ -92,7 +143,7 @@ namespace LearningCSharp
         static void Main()
         {
             SDL.SDL_Init(SDL.SDL_INIT_VIDEO);
-            window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1000, 500, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN | SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
+            window = SDL.SDL_CreateWindow("Vulkan Sandbox", SDL.SDL_WINDOWPOS_UNDEFINED, SDL.SDL_WINDOWPOS_UNDEFINED, 1300, 800, SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN | SDL.SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
             CreateViewport();
             InitVulkan();
 
@@ -175,6 +226,13 @@ namespace LearningCSharp
             ChoosePhysicalDevice();
             CreateLogicalDevice();
 
+            vertexBuffer = CreateBuffer(new Vertex[]
+            {
+                new Vertex { position = new Vector3(0, -TRIANGLE_SIZE, 0), color = new Vector4(1, 0, 0, 1) },
+                new Vertex { position = new Vector3(TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 1, 0, 1) },
+                new Vertex { position = new Vector3(-TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 0, 1, 1) },
+            }, BufferUsageFlags.VertexBuffer);
+
             CreateSwapchain();
             CreateRenderPass();
 
@@ -238,6 +296,8 @@ namespace LearningCSharp
         {
             logicalDevice.WaitIdle();
             CleanUpSwapchain();
+
+            vertexBuffer.Destroy(logicalDevice);
 
             logicalDevice.DestroySemaphore(imageAvailableSemaphore);
             logicalDevice.DestroySemaphore(renderFinishedSemaphore);
@@ -599,13 +659,20 @@ namespace LearningCSharp
                 RasterizerDiscardEnable = false,
             };
 
+            VertexInputBindingDescription* vertexInputBindingDescriptions = stackalloc VertexInputBindingDescription[1];
+            *vertexInputBindingDescriptions = Vertex.bindingDescription;
+
+            VertexInputAttributeDescription* vertexInputAttributeDescriptions = stackalloc VertexInputAttributeDescription[2];
+            vertexInputAttributeDescriptions[0] = Vertex.attributeDescriptions.Item1;
+            vertexInputAttributeDescriptions[1] = Vertex.attributeDescriptions.Item2;
+
             PipelineVertexInputStateCreateInfo vertexInputState = new PipelineVertexInputStateCreateInfo
             {
                 StructureType = StructureType.PipelineVertexInputStateCreateInfo,
-                VertexAttributeDescriptionCount = 0,
-                VertexAttributeDescriptions = IntPtr.Zero,
-                VertexBindingDescriptionCount = 0,
-                VertexBindingDescriptions = IntPtr.Zero,
+                VertexAttributeDescriptionCount = 2,
+                VertexAttributeDescriptions = (IntPtr)vertexInputAttributeDescriptions,
+                VertexBindingDescriptionCount = 1,
+                VertexBindingDescriptions = (IntPtr)vertexInputBindingDescriptions,
             };
 
             Rect2D scissor = new Rect2D
@@ -731,6 +798,12 @@ namespace LearningCSharp
                    buffer->SetViewport(0, 1, viewportPtr);
 
                 buffer->BindPipeline(PipelineBindPoint.Graphics, graphicsPipeline);
+                fixed (SharpVulkan.Buffer* dataBuffer = &vertexBuffer.buffer)
+                {
+                    ulong* offsets = stackalloc ulong[1];
+                    *offsets = 0;
+                    buffer->BindVertexBuffers(0, 1, dataBuffer, offsets);
+                }
                 buffer->Draw(3, 1, 0, 0);
 
                 buffer->EndRenderPass();
@@ -809,6 +882,56 @@ namespace LearningCSharp
                 Stage = stage,
             };
             return new Shader(unmanagedEntryPointName) { module = module, pipelineStage = pipelineStage };
+        }
+
+        static Buffer CreateBuffer<T>(T[] data, BufferUsageFlags usage)
+            where T : struct
+        {
+            ulong size = (ulong)(Marshal.SizeOf<T>() * data.Length);
+
+            Buffer buffer = new Buffer();
+            BufferCreateInfo createInfo = new BufferCreateInfo
+            {
+                StructureType = StructureType.BufferCreateInfo,
+                SharingMode = SharingMode.Exclusive,
+                Size = size,
+                Usage = usage,
+            };
+            buffer.buffer = logicalDevice.CreateBuffer(ref createInfo);
+
+            logicalDevice.GetBufferMemoryRequirements(buffer.buffer, out MemoryRequirements memoryRequirements);
+            physicalDevice.GetMemoryProperties(out PhysicalDeviceMemoryProperties memoryProperties);
+
+            uint memoryTypeIndex = 0;
+            for (uint i = 0; i < memoryProperties.MemoryTypeCount; i++)
+            {
+                MemoryType* memoryType = &memoryProperties.MemoryTypes.Value0 + i;
+                if ((memoryRequirements.MemoryTypeBits & (1 << (int)i)) != 0 && memoryType->PropertyFlags.HasFlag(MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent))
+                {
+                    memoryTypeIndex = i;
+                    break;
+                }
+            }
+
+            MemoryAllocateInfo allocateInfo = new MemoryAllocateInfo
+            {
+                StructureType = StructureType.MemoryAllocateInfo,
+                AllocationSize = memoryRequirements.Size,
+                MemoryTypeIndex = memoryTypeIndex,
+            };
+            buffer.data = logicalDevice.AllocateMemory(ref allocateInfo);
+
+            IntPtr memory = logicalDevice.MapMemory(buffer.data, 0, size, MemoryMapFlags.None);
+            {
+                byte[] byteData = new byte[size];
+                System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), Marshal.UnsafeAddrOfPinnedArrayElement(byteData, 0).ToPointer(), byteData.Length, byteData.Length);
+                Marshal.Copy(byteData, 0, memory, byteData.Length);
+            }
+            logicalDevice.UnmapMemory(buffer.data);
+
+            logicalDevice.BindBufferMemory(buffer.buffer, buffer.data, 0);
+
+            return buffer;
         }
 
         static IntPtr[] GetNamePointers<T>(string[] desiredNames, T[] availablePropertiesArray, string supportedObjectsNameOnFail)
