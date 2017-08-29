@@ -236,7 +236,12 @@ namespace LearningCSharp
 
             CreateFrameBuffers();
             CreateCommandPool();
-            CreateVertexBuffer();
+            vertexBuffer = MakeBufferWithStagingBuffer(new Vertex[]
+            {
+                new Vertex { position = new Vector3(0, -TRIANGLE_SIZE, 0), color = new Vector4(1, 0, 0, 1) },
+                new Vertex { position = new Vector3(TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 1, 0, 1) },
+                new Vertex { position = new Vector3(-TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 0, 1, 1) },
+            }, BufferUsageFlags.VertexBuffer);
             AllocateCommandBuffers();
 
             CreateSemaphores();
@@ -747,22 +752,6 @@ namespace LearningCSharp
             commandPool = logicalDevice.CreateCommandPool(ref createInfo);
         }
 
-        static void CreateVertexBuffer()
-        {
-            Buffer stagingBuffer = CreateBuffer(new Vertex[]
-            {
-                new Vertex { position = new Vector3(0, -TRIANGLE_SIZE, 0), color = new Vector4(1, 0, 0, 1) },
-                new Vertex { position = new Vector3(TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 1, 0, 1) },
-                new Vertex { position = new Vector3(-TRIANGLE_SIZE, TRIANGLE_SIZE, 0), color = new Vector4(0, 0, 1, 1) },
-            }, BufferUsageFlags.TransferSource);
-
-            ulong size = (ulong)Marshal.SizeOf<Vertex>() * 3;
-            vertexBuffer = CreateBuffer(size, BufferUsageFlags.VertexBuffer | BufferUsageFlags.TransferDestination, MemoryPropertyFlags.DeviceLocal);
-
-            CopyBuffer(stagingBuffer.buffer, vertexBuffer.buffer, size);
-            stagingBuffer.Destroy(logicalDevice);
-        }
-
         static void AllocateCommandBuffers()
         {
             commandBuffers = new CommandBuffer[swapchainImages.Length];
@@ -984,6 +973,20 @@ namespace LearningCSharp
             graphicsQueue.WaitIdle();
 
             logicalDevice.FreeCommandBuffers(commandPool, 1, &commandBuffer);
+        }
+
+        static Buffer MakeBufferWithStagingBuffer<T>(T[] data, BufferUsageFlags usage)
+            where T : struct
+        {
+            Buffer stagingBuffer = CreateBuffer(data, BufferUsageFlags.TransferSource);
+
+            ulong size = (ulong)Marshal.SizeOf<Vertex>() * 3;
+            Buffer buffer = CreateBuffer(size, usage | BufferUsageFlags.TransferDestination, MemoryPropertyFlags.DeviceLocal);
+
+            CopyBuffer(stagingBuffer.buffer, buffer.buffer, size);
+            stagingBuffer.Destroy(logicalDevice);
+
+            return buffer;
         }
 
         static IntPtr[] GetNamePointers<T>(string[] desiredNames, T[] availablePropertiesArray, string supportedObjectsNameOnFail)
