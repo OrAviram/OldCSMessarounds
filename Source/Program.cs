@@ -89,20 +89,39 @@ namespace LearningCSharp
     unsafe struct Buffer
     {
         public SharpVulkan.Buffer buffer;
-        public DeviceMemory data;
+        public DeviceMemory memory;
+        public readonly ulong size;
+
+        public Buffer(ulong size) : this()
+        {
+            this.size = size;
+        }
 
         public void Destroy(Device device)
         {
             device.DestroyBuffer(buffer);
-            device.FreeMemory(data);
+            device.FreeMemory(memory);
         }
     }
 
     struct MVPMatrices
     {
+        public static MVPMatrices Identity { get; } = new MVPMatrices { model = Matrix4x4.Identity, view = Matrix4x4.Identity, projection = Matrix4x4.Identity };
+
         public Matrix4x4 model;
         public Matrix4x4 view;
         public Matrix4x4 projection;
+    }
+
+    struct UniformBuffer
+    {
+        public Buffer buffer;
+        public DescriptorSet descriptorSet;
+
+        public void Destroy(Device device)
+        {
+            buffer.Destroy(device);
+        }
     }
 
     static unsafe class Program
@@ -121,6 +140,8 @@ namespace LearningCSharp
         static CommandPool commandPool;
 
         static DescriptorSetLayout descriptorSetLayout;
+        static DescriptorPool descriptorPool;
+        static UniformBuffer mvpMatricesBuffer;
 
         static Shader vertexShader;
         static Shader fragmentShader;
@@ -250,6 +271,8 @@ namespace LearningCSharp
             CreateRenderPass();
 
             CreateDescriptorSetLayout();
+            CreateDescriptorPool();
+            mvpMatricesBuffer = CreateUniformBuffer(new MVPMatrices[] { MVPMatrices.Identity }, 0);
 
             vertexShader = LoadShader("Shaders/vert.spv", ShaderStageFlags.Vertex);
             fragmentShader = LoadShader("Shaders/frag.spv", ShaderStageFlags.Fragment);
@@ -312,7 +335,11 @@ namespace LearningCSharp
         static void DeinitVulkan()
         {
             logicalDevice.WaitIdle();
+
+            mvpMatricesBuffer.Destroy(logicalDevice);
+            logicalDevice.DestroyDescriptorPool(descriptorPool);
             logicalDevice.DestroyDescriptorSetLayout(descriptorSetLayout);
+
             CleanUpSwapchain();
 
             vertexBuffer.Destroy(logicalDevice);
@@ -619,6 +646,24 @@ namespace LearningCSharp
             descriptorSetLayout = logicalDevice.CreateDescriptorSetLayout(ref createInfo);
         }
 
+        static void CreateDescriptorPool()
+        {
+            DescriptorPoolSize poolSize = new DescriptorPoolSize
+            {
+                DescriptorCount = 1,
+                Type = DescriptorType.UniformBuffer,
+            };
+
+            DescriptorPoolCreateInfo createInfo = new DescriptorPoolCreateInfo
+            {
+                StructureType = StructureType.DescriptorPoolCreateInfo,
+                MaxSets = 1,
+                PoolSizeCount = 1,
+                PoolSizes = new IntPtr(&poolSize),
+            };
+            descriptorPool = logicalDevice.CreateDescriptorPool(ref createInfo);
+        }
+
         static void CreatePipelineLayout()
         {
             DescriptorSetLayout* setLayouts = stackalloc DescriptorSetLayout[1];
@@ -839,14 +884,20 @@ namespace LearningCSharp
                 fixed (Viewport* viewportPtr = &viewport)
                    buffer->SetViewport(0, 1, viewportPtr);
 
+                ulong* offsets = stackalloc ulong[1];
+                *offsets = 0;
+
                 buffer->BindPipeline(PipelineBindPoint.Graphics, graphicsPipeline);
                 fixed (SharpVulkan.Buffer* dataBuffer = &vertexBuffer.buffer)
                 {
-                    ulong* offsets = stackalloc ulong[1];
-                    *offsets = 0;
                     buffer->BindVertexBuffers(0, 1, dataBuffer, offsets);
                 }
                 buffer->BindIndexBuffer(indexBuffer.buffer, 0, IndexType.UInt32);
+
+                DescriptorSet* descriptorSets = stackalloc DescriptorSet[1];
+                *descriptorSets = mvpMatricesBuffer.descriptorSet;
+                buffer->BindDescriptorSets(PipelineBindPoint.Graphics, pipelineLayout, 0, 1, descriptorSets, 0, null);
+
                 buffer->DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
 
                 buffer->EndRenderPass();
@@ -929,7 +980,7 @@ namespace LearningCSharp
 
         static Buffer CreateBuffer(ulong size, BufferUsageFlags usage, MemoryPropertyFlags memoryPropertyFlags = MemoryPropertyFlags.HostVisible | MemoryPropertyFlags.HostCoherent)
         {
-            Buffer buffer = new Buffer();
+            Buffer buffer = new Buffer(size);
             BufferCreateInfo createInfo = new BufferCreateInfo
             {
                 StructureType = StructureType.BufferCreateInfo,
@@ -959,8 +1010,8 @@ namespace LearningCSharp
                 AllocationSize = memoryRequirements.Size,
                 MemoryTypeIndex = memoryTypeIndex,
             };
-            buffer.data = logicalDevice.AllocateMemory(ref allocateInfo);
-            logicalDevice.BindBufferMemory(buffer.buffer, buffer.data, 0);
+            buffer.memory = logicalDevice.AllocateMemory(ref allocateInfo);
+            logicalDevice.BindBufferMemory(buffer.buffer, buffer.memory, 0);
             return buffer;
         }
 
@@ -970,9 +1021,9 @@ namespace LearningCSharp
             ulong size = (ulong)(Marshal.SizeOf<T>() * data.Length);
             Buffer buffer = CreateBuffer(size, usage, memoryPropertyFlags);
 
-            IntPtr memory = logicalDevice.MapMemory(buffer.data, 0, size, MemoryMapFlags.None);
+            IntPtr memory = logicalDevice.MapMemory(buffer.memory, 0, size, MemoryMapFlags.None);
             System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), size, size);
-            logicalDevice.UnmapMemory(buffer.data);
+            logicalDevice.UnmapMemory(buffer.memory);
 
             return buffer;
         }
@@ -1030,6 +1081,55 @@ namespace LearningCSharp
             CopyBuffer(stagingBuffer.buffer, buffer.buffer, size);
             stagingBuffer.Destroy(logicalDevice);
 
+            return buffer;
+        }
+
+        static DescriptorSet AllocateDescriptorSet()
+        {
+            fixed (void* setLayouts = &descriptorSetLayout)
+            {
+                DescriptorSetAllocateInfo allocateInfo = new DescriptorSetAllocateInfo
+                {
+                    StructureType = StructureType.DescriptorSetAllocateInfo,
+                    DescriptorPool = descriptorPool,
+                    DescriptorSetCount = 1,
+                    SetLayouts = (IntPtr)setLayouts,
+                };
+                DescriptorSet set = DescriptorSet.Null;
+                logicalDevice.AllocateDescriptorSets(ref allocateInfo, &set);
+                return set;
+            }
+        }
+
+        static UniformBuffer CreateUniformBuffer<T>(T[] data, uint binding)
+            where T : struct
+        {
+            UniformBuffer buffer = new UniformBuffer
+            {
+                buffer = CreateBuffer(data, BufferUsageFlags.UniformBuffer),
+                descriptorSet = AllocateDescriptorSet(),
+            };
+
+            DescriptorBufferInfo bufferInfo = new DescriptorBufferInfo
+            {
+                Buffer = buffer.buffer.buffer,
+                Offset = 0,
+                Range = buffer.buffer.size,
+            };
+
+            WriteDescriptorSet descriptorWrite = new WriteDescriptorSet
+            {
+                StructureType = StructureType.WriteDescriptorSet,
+                BufferInfo = new IntPtr(&bufferInfo),
+                DescriptorCount = 1,
+                DescriptorType = DescriptorType.UniformBuffer,
+                DestinationArrayElement = 0,
+                DestinationBinding = binding,
+                DestinationSet = buffer.descriptorSet,
+                ImageInfo = IntPtr.Zero,
+                TexelBufferView = IntPtr.Zero,
+            };
+            logicalDevice.UpdateDescriptorSets(1, &descriptorWrite, 0, null);
             return buffer;
         }
 

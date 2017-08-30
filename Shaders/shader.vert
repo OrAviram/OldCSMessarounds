@@ -15,6 +15,7 @@ layout(location = 0) out vec4 vertexColor;
 
 void main()
 {
-	gl_Position = mvpMatrices.projection * mvpMatrices.view * mvpMatrices.model * vec4(position, 1);
-	vertexColor = color;
+	//gl_Position = mvpMatrices.projection * mvpMatrices.view * mvpMatrices.model * vec4(position, 1);
+	gl_Position = vec4(position, 1);
+	vertexColor = vec4(mvpMatrices.model[0][0], 0, 0, 1);
 }
