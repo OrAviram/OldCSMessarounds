@@ -175,7 +175,7 @@ namespace LearningCSharp
             new Vertex { position = new Vector3(-RECTANGLE_SIZE, RECTANGLE_SIZE, 0), color = new Vector4(0, 0, 0, 1) },
         };
         static readonly uint[] indices = new uint[] { 0, 1, 2, 2, 3, 0 };
-        static readonly Vector4 clearColor = new Vector4(0, 0, 0, 1);
+        static readonly Vector4 clearColor = new Vector4(0, .25f, .15f, 1);
 
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
         static readonly string[] validationLayers = new string[] { "VK_LAYER_LUNARG_standard_validation" };
@@ -884,12 +884,11 @@ namespace LearningCSharp
                 fixed (Viewport* viewportPtr = &viewport)
                    buffer->SetViewport(0, 1, viewportPtr);
 
-                ulong* offsets = stackalloc ulong[1];
-                *offsets = 0;
-
                 buffer->BindPipeline(PipelineBindPoint.Graphics, graphicsPipeline);
                 fixed (SharpVulkan.Buffer* dataBuffer = &vertexBuffer.buffer)
                 {
+                    ulong* offsets = stackalloc ulong[1];
+                    *offsets = 0;
                     buffer->BindVertexBuffers(0, 1, dataBuffer, offsets);
                 }
                 buffer->BindIndexBuffer(indexBuffer.buffer, 0, IndexType.UInt32);
@@ -1086,19 +1085,19 @@ namespace LearningCSharp
 
         static DescriptorSet AllocateDescriptorSet()
         {
-            fixed (void* setLayouts = &descriptorSetLayout)
+            DescriptorSetLayout* setLayout = stackalloc DescriptorSetLayout[1];
+            *setLayout = descriptorSetLayout;
+
+            DescriptorSetAllocateInfo allocateInfo = new DescriptorSetAllocateInfo
             {
-                DescriptorSetAllocateInfo allocateInfo = new DescriptorSetAllocateInfo
-                {
-                    StructureType = StructureType.DescriptorSetAllocateInfo,
-                    DescriptorPool = descriptorPool,
-                    DescriptorSetCount = 1,
-                    SetLayouts = (IntPtr)setLayouts,
-                };
-                DescriptorSet set = DescriptorSet.Null;
-                logicalDevice.AllocateDescriptorSets(ref allocateInfo, &set);
-                return set;
-            }
+                StructureType = StructureType.DescriptorSetAllocateInfo,
+                DescriptorPool = descriptorPool,
+                DescriptorSetCount = 1,
+                SetLayouts = (IntPtr)setLayout,
+            };
+            DescriptorSet set = DescriptorSet.Null;
+            logicalDevice.AllocateDescriptorSets(ref allocateInfo, &set);
+            return set;
         }
 
         static UniformBuffer CreateUniformBuffer<T>(T[] data, uint binding)
