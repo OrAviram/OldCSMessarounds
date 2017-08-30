@@ -98,6 +98,13 @@ namespace LearningCSharp
         }
     }
 
+    struct MVPMatrices
+    {
+        public Matrix4x4 model;
+        public Matrix4x4 view;
+        public Matrix4x4 projection;
+    }
+
     static unsafe class Program
     {
         const float RECTANGLE_SIZE = .5f;
@@ -112,6 +119,8 @@ namespace LearningCSharp
         static Swapchain swapchain;
         static RenderPass renderPass;
         static CommandPool commandPool;
+
+        static DescriptorSetLayout descriptorSetLayout;
 
         static Shader vertexShader;
         static Shader fragmentShader;
@@ -240,6 +249,8 @@ namespace LearningCSharp
             CreateSwapchain();
             CreateRenderPass();
 
+            CreateDescriptorSetLayout();
+
             vertexShader = LoadShader("Shaders/vert.spv", ShaderStageFlags.Vertex);
             fragmentShader = LoadShader("Shaders/frag.spv", ShaderStageFlags.Fragment);
             CreatePipelineLayout();
@@ -301,6 +312,7 @@ namespace LearningCSharp
         static void DeinitVulkan()
         {
             logicalDevice.WaitIdle();
+            logicalDevice.DestroyDescriptorSetLayout(descriptorSetLayout);
             CleanUpSwapchain();
 
             vertexBuffer.Destroy(logicalDevice);
@@ -585,6 +597,26 @@ namespace LearningCSharp
                 Subpasses = new IntPtr(&subpass),
             };
             renderPass = logicalDevice.CreateRenderPass(ref createInfo);
+        }
+
+        static void CreateDescriptorSetLayout()
+        {
+            DescriptorSetLayoutBinding binding = new DescriptorSetLayoutBinding
+            {
+                Binding = 0,
+                DescriptorCount = 1,
+                DescriptorType = DescriptorType.UniformBuffer,
+                StageFlags = ShaderStageFlags.AllGraphics,
+                ImmutableSamplers = IntPtr.Zero,
+            };
+
+            DescriptorSetLayoutCreateInfo createInfo = new DescriptorSetLayoutCreateInfo
+            {
+                StructureType = StructureType.DescriptorSetLayoutCreateInfo,
+                BindingCount = 1,
+                Bindings = new IntPtr(&binding),
+            };
+            descriptorSetLayout = logicalDevice.CreateDescriptorSetLayout(ref createInfo);
         }
 
         static void CreatePipelineLayout()
