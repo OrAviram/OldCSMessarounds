@@ -621,13 +621,16 @@ namespace LearningCSharp
 
         static void CreatePipelineLayout()
         {
+            DescriptorSetLayout* setLayouts = stackalloc DescriptorSetLayout[1];
+            *setLayouts = descriptorSetLayout;
+
             PipelineLayoutCreateInfo createInfo = new PipelineLayoutCreateInfo
             {
                 StructureType = StructureType.PipelineLayoutCreateInfo,
                 PushConstantRangeCount = 0,
                 PushConstantRanges = IntPtr.Zero,
-                SetLayoutCount = 0,
-                SetLayouts = IntPtr.Zero,
+                SetLayoutCount = 1,
+                SetLayouts = (IntPtr)setLayouts,
             };
             pipelineLayout = logicalDevice.CreatePipelineLayout(ref createInfo);
         }
