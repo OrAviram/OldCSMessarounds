@@ -4,8 +4,8 @@
 layout(binding = 0) uniform MVPMatrices
 {
 	mat4 model;
-	mat4 view;
-	mat4 projection;
+	//mat4 view;
+	//mat4 projection;
 } mvpMatrices;
 
 layout(location = 0) in vec3 position;
@@ -15,7 +15,6 @@ layout(location = 5) out vec4 vertexColor;
 
 void main()
 {
-	//gl_Position = mvpMatrices.projection * mvpMatrices.view * mvpMatrices.model * vec4(position, 1);
-	gl_Position = vec4(position, 1);
-	vertexColor = mvpMatrices.model[1];
+	gl_Position = /*mvpMatrices.projection * mvpMatrices.view * */ mvpMatrices.model * vec4(position, 1);
+	vertexColor = color;
 }

@@ -106,11 +106,11 @@ namespace LearningCSharp
 
     struct MVPMatrices
     {
-        public static MVPMatrices Identity { get; } = new MVPMatrices { model = Matrix4x4.Identity, view = Matrix4x4.Identity, projection = Matrix4x4.Identity };
+        public static MVPMatrices Identity { get; } = new MVPMatrices { model = Matrix4x4.Identity/*, view = Matrix4x4.Identity, projection = Matrix4x4.Identity*/ };
 
         public Matrix4x4 model;
-        public Matrix4x4 view;
-        public Matrix4x4 projection;
+        //public Matrix4x4 view;
+        //public Matrix4x4 projection;
     }
 
     struct UniformBuffer
@@ -177,6 +177,9 @@ namespace LearningCSharp
         static readonly uint[] indices = new uint[] { 0, 1, 2, 2, 3, 0 };
         static readonly Vector4 clearColor = new Vector4(0, .25f, .15f, 1);
 
+        static MVPMatrices[] mvpMatricesArray = new MVPMatrices[1];
+        static ref MVPMatrices MVPMatrices => ref mvpMatricesArray[0];
+
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
         static readonly string[] validationLayers = new string[] { "VK_LAYER_LUNARG_standard_validation" };
         static readonly string[] deviceExtensions = new string[] { "VK_KHR_swapchain" };
@@ -204,6 +207,7 @@ namespace LearningCSharp
                         RecreateSwapChain();
                     }
                 }
+                UpdateApplication();
                 DrawFrame();
             }
             DeinitVulkan();
@@ -272,7 +276,7 @@ namespace LearningCSharp
 
             CreateDescriptorSetLayout();
             CreateDescriptorPool();
-            mvpMatricesBuffer = CreateUniformBuffer(new MVPMatrices[] { MVPMatrices.Identity }, 0);
+            mvpMatricesBuffer = CreateUniformBuffer((ulong)Marshal.SizeOf<MVPMatrices>(), 0);
 
             vertexShader = LoadShader("Shaders/vert.spv", ShaderStageFlags.Vertex);
             fragmentShader = LoadShader("Shaders/frag.spv", ShaderStageFlags.Fragment);
@@ -286,6 +290,15 @@ namespace LearningCSharp
             AllocateCommandBuffers();
 
             CreateSemaphores();
+        }
+
+        static void UpdateApplication()
+        {
+            MVPMatrices.model = Matrix4x4.Identity;
+            //mvpMatrices.view = Matrix4x4.Identity;
+            //mvpMatrices.projection = Matrix4x4.Identity;
+
+            mvpMatricesBuffer.buffer.SetBufferData(mvpMatricesArray);
         }
 
         static void DrawFrame()
@@ -1020,10 +1033,7 @@ namespace LearningCSharp
             ulong size = (ulong)(Marshal.SizeOf<T>() * data.Length);
             Buffer buffer = CreateBuffer(size, usage, memoryPropertyFlags);
 
-            IntPtr memory = logicalDevice.MapMemory(buffer.memory, 0, size, MemoryMapFlags.None);
-            System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), size, size);
-            logicalDevice.UnmapMemory(buffer.memory);
-
+            SetBufferData(buffer, data);
             return buffer;
         }
 
@@ -1069,6 +1079,28 @@ namespace LearningCSharp
             logicalDevice.FreeCommandBuffers(commandPool, 1, &commandBuffer);
         }
 
+        static void SetBufferData<T>(this Buffer buffer, T[] data)
+            where T : struct
+        {
+            ulong size = (ulong)(Marshal.SizeOf<T>() * data.Length);
+            if (size != buffer.size)
+                throw new ArgumentException("Size of buffer data must be the same as the size of the buffer!");
+
+            IntPtr memory = logicalDevice.MapMemory(buffer.memory, 0, size, MemoryMapFlags.None);
+            System.Buffer.MemoryCopy(Marshal.UnsafeAddrOfPinnedArrayElement(data, 0).ToPointer(), memory.ToPointer(), (uint)size, (uint)size);
+            logicalDevice.UnmapMemory(buffer.memory);
+        }
+
+        static T[] GetBufferData<T>(this Buffer buffer)
+            where T : struct
+        {
+            T[] result = new T[(int)buffer.size / Marshal.SizeOf<T>()];
+            IntPtr memory = logicalDevice.MapMemory(buffer.memory, 0, buffer.size, MemoryMapFlags.None);
+            System.Buffer.MemoryCopy(memory.ToPointer(), Marshal.UnsafeAddrOfPinnedArrayElement(result, 0).ToPointer(), (uint)buffer.size, (uint)buffer.size);
+            logicalDevice.UnmapMemory(buffer.memory);
+            return result;
+        }
+
         static Buffer MakeBufferWithStagingBuffer<T>(T[] data, BufferUsageFlags usage)
             where T : struct
         {
@@ -1100,12 +1132,11 @@ namespace LearningCSharp
             return set;
         }
 
-        static UniformBuffer CreateUniformBuffer<T>(T[] data, uint binding)
-            where T : struct
+        static UniformBuffer CreateUniformBuffer(ulong size, uint binding)
         {
             UniformBuffer buffer = new UniformBuffer
             {
-                buffer = CreateBuffer(data, BufferUsageFlags.UniformBuffer),
+                buffer = CreateBuffer(size, BufferUsageFlags.UniformBuffer),
                 descriptorSet = AllocateDescriptorSet(),
             };
 
