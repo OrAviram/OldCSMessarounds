@@ -106,11 +106,11 @@ namespace LearningCSharp
 
     struct MVPMatrices
     {
-        public static MVPMatrices Identity { get; } = new MVPMatrices { model = Matrix4x4.Identity/*, view = Matrix4x4.Identity, projection = Matrix4x4.Identity*/ };
+        public static MVPMatrices Identity { get; } = new MVPMatrices { model = Matrix4x4.Identity, view = Matrix4x4.Identity, projection = Matrix4x4.Identity };
 
         public Matrix4x4 model;
-        //public Matrix4x4 view;
-        //public Matrix4x4 projection;
+        public Matrix4x4 view;
+        public Matrix4x4 projection;
     }
 
     struct UniformBuffer
@@ -177,7 +177,7 @@ namespace LearningCSharp
         static readonly uint[] indices = new uint[] { 0, 1, 2, 2, 3, 0 };
         static readonly Vector4 clearColor = new Vector4(0, .25f, .15f, 1);
 
-        static MVPMatrices[] mvpMatricesArray = new MVPMatrices[1];
+        static readonly MVPMatrices[] mvpMatricesArray = new MVPMatrices[1];
         static ref MVPMatrices MVPMatrices => ref mvpMatricesArray[0];
 
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
@@ -295,10 +295,13 @@ namespace LearningCSharp
         static void UpdateApplication()
         {
             MVPMatrices.model = Matrix4x4.Identity;
-            //mvpMatrices.view = Matrix4x4.Identity;
-            //mvpMatrices.projection = Matrix4x4.Identity;
+            MVPMatrices.view = Matrix4x4.Identity;
+            MVPMatrices.projection = Matrix4x4.Identity;
 
             mvpMatricesBuffer.buffer.SetBufferData(mvpMatricesArray);
+            //Console.WriteLine(mvpMatricesBuffer.buffer.GetBufferData<MVPMatrices>()[0].model);
+            //Console.WriteLine(mvpMatricesBuffer.buffer.GetBufferData<MVPMatrices>()[0].view);
+            //Console.WriteLine(mvpMatricesBuffer.buffer.GetBufferData<MVPMatrices>()[0].projection);
         }
 
         static void DrawFrame()
