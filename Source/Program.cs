@@ -1,4 +1,6 @@
-﻿using System;
+﻿//#define DEBUG_REPORT
+
+using System;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -175,9 +177,9 @@ namespace LearningCSharp
             new Vertex { position = new Vector3(-RECTANGLE_SIZE, RECTANGLE_SIZE, 0), color = new Vector4(0, 0, 0, 1) },
         };
         static readonly uint[] indices = new uint[] { 0, 1, 2, 2, 3, 0 };
-        static readonly Vector4 clearColor = new Vector4(0, .25f, .15f, 1);
+        static readonly Vector4 clearColor = new Vector4(0, 0, 0, 1);
 
-        static readonly MVPMatrices[] mvpMatricesArray = new MVPMatrices[1];
+        static readonly MVPMatrices[] mvpMatricesArray = new MVPMatrices[1] { MVPMatrices.Identity };
         static ref MVPMatrices MVPMatrices => ref mvpMatricesArray[0];
 
         static readonly string[] extensions = new string[] { "VK_EXT_debug_report", "VK_KHR_surface", "VK_KHR_win32_surface" };
@@ -220,7 +222,8 @@ namespace LearningCSharp
 
         static void CreateViewport()
         {
-            SDL.SDL_GetWindowSize(window, out int width, out int height);
+            int width = 0, height = 0;
+            SDL.SDL_GetWindowSize(window, out width, out height);
             viewport = new Viewport
             {
                 Width = width,
@@ -266,7 +269,11 @@ namespace LearningCSharp
         static void InitVulkan()
         {
             CreateInstance();
+
+#           if DEBUG_REPORT
             SetupDebugReport();
+#           endif
+
             CreateSurface();
             ChoosePhysicalDevice();
             CreateLogicalDevice();
@@ -294,14 +301,11 @@ namespace LearningCSharp
 
         static void UpdateApplication()
         {
-            MVPMatrices.model = Matrix4x4.Identity;
-            MVPMatrices.view = Matrix4x4.Identity;
-            MVPMatrices.projection = Matrix4x4.Identity;
+            MVPMatrices.model *= Matrix4x4.CreateRotationZ(.0001f) * Matrix4x4.CreateRotationX(.0005f);
+            MVPMatrices.model.Translation = new Vector3(0, 0, -10);
+            MVPMatrices.projection = Matrix4x4.CreatePerspectiveFieldOfView(0.45f, viewport.Width / viewport.Height, .1f, 100);
 
             mvpMatricesBuffer.buffer.SetBufferData(mvpMatricesArray);
-            //Console.WriteLine(mvpMatricesBuffer.buffer.GetBufferData<MVPMatrices>()[0].model);
-            //Console.WriteLine(mvpMatricesBuffer.buffer.GetBufferData<MVPMatrices>()[0].view);
-            //Console.WriteLine(mvpMatricesBuffer.buffer.GetBufferData<MVPMatrices>()[0].projection);
         }
 
         static void DrawFrame()
@@ -321,7 +325,7 @@ namespace LearningCSharp
 
             PipelineStageFlags* pipelineStageFlags = stackalloc PipelineStageFlags[1];
             *pipelineStageFlags = PipelineStageFlags.ColorAttachmentOutput;
-            
+
             SubmitInfo submitInfo = new SubmitInfo
             {
                 StructureType = StructureType.SubmitInfo,
@@ -365,13 +369,17 @@ namespace LearningCSharp
             logicalDevice.DestroySemaphore(renderFinishedSemaphore);
 
             logicalDevice.DestroyCommandPool(commandPool);
-            
+
             fragmentShader.Destroy(logicalDevice);
             vertexShader.Destroy(logicalDevice);
 
             logicalDevice.Destroy();
             instance.DestroySurface(surface);
+
+#           if DEBUG_REPORT
             instance.DestroyDebugReportCallback(debugReportCallback);
+#           endif
+
             instance.Destroy();
         }
 
@@ -380,7 +388,7 @@ namespace LearningCSharp
             ApplicationInfo appInfo = new ApplicationInfo
             {
                 StructureType = StructureType.ApplicationInfo,
-                ApiVersion = Vulkan.ApiVersion,
+                ApiVersion = new Version(1, 0, 0),
                 ApplicationName = Marshal.StringToHGlobalAnsi("Vulkan Sandbox"),
                 ApplicationVersion = new Version(1, 0, 0),
                 EngineName = Marshal.StringToHGlobalAnsi("Vulkan Sandbox Engine"),
@@ -750,7 +758,7 @@ namespace LearningCSharp
             PipelineRasterizationStateCreateInfo rasterizationState = new PipelineRasterizationStateCreateInfo
             {
                 StructureType = StructureType.PipelineRasterizationStateCreateInfo,
-                CullMode = CullModeFlags.Back,
+                CullMode = CullModeFlags.None,
                 FrontFace = FrontFace.Clockwise,
                 DepthBiasEnable = false,
                 DepthBiasConstantFactor = 0,
@@ -898,7 +906,7 @@ namespace LearningCSharp
                 buffer->BeginRenderPass(ref renderPassBeginInfo, SubpassContents.Inline);
 
                 fixed (Viewport* viewportPtr = &viewport)
-                   buffer->SetViewport(0, 1, viewportPtr);
+                    buffer->SetViewport(0, 1, viewportPtr);
 
                 buffer->BindPipeline(PipelineBindPoint.Graphics, graphicsPipeline);
                 fixed (SharpVulkan.Buffer* dataBuffer = &vertexBuffer.buffer)
@@ -962,7 +970,8 @@ namespace LearningCSharp
             if (capabilities.CurrentExtent.Width != uint.MaxValue)
                 return capabilities.CurrentExtent;
 
-            SDL.SDL_GetWindowSize(window, out int width, out int height);
+            int width = 0, height = 0;
+            SDL.SDL_GetWindowSize(window, out width, out height);
             Extent2D actualExtent = new Extent2D((uint)width, (uint)height);
 
             actualExtent.Width = actualExtent.Width.Clamp(capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width);
