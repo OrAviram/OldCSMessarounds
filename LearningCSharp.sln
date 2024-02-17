@@ -3,15 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26430.16
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LearningCSharp", "LearningCSharp.csproj", "{FB38D190-D86C-4907-AA9A-EC63998E3AED}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LearningCSharp", "LearningCSharp\LearningCSharp.csproj", "{FB38D190-D86C-4907-AA9A-EC63998E3AED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnotherProject", "..\AnotherProject\AnotherProject.csproj", "{A045C1A6-7B8A-44B1-BC77-138A3115FAAE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnotherProject", "AnotherProject\AnotherProject.csproj", "{A045C1A6-7B8A-44B1-BC77-138A3115FAAE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nand2TetrisAssembler", "..\Nand2TetrisAssembler\Nand2TetrisAssembler.csproj", "{B4681469-B56D-44E1-BF35-2D33E9E11D86}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nand2TetrisAssembler", "Nand2TetrisAssembler\Nand2TetrisAssembler.csproj", "{B4681469-B56D-44E1-BF35-2D33E9E11D86}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nand2TetrisVMTranslator", "..\Nand2TetrisVMTranslator\Nand2TetrisVMTranslator.csproj", "{94D49F5F-58B1-4CB5-A134-AD0562A812F8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nand2TetrisVMTranslator", "Nand2TetrisVMTranslator\Nand2TetrisVMTranslator.csproj", "{94D49F5F-58B1-4CB5-A134-AD0562A812F8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nand2TetrisJackCompiler", "..\Nand2TetrisJackCompiler\Nand2TetrisJackCompiler.csproj", "{86FA5431-BF58-49F9-ACEF-CCFEE8BB3DF7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nand2TetrisJackCompiler", "Nand2TetrisJackCompiler\Nand2TetrisJackCompiler.csproj", "{86FA5431-BF58-49F9-ACEF-CCFEE8BB3DF7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
